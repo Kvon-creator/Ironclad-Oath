@@ -3,6 +3,20 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
+from enum import Enum, auto
+
+class UnitActionState(Enum):
+    READY = auto()
+    MOVED = auto()
+    ACTED = auto()
+    EXHAUSTED = auto()
+    DONE = auto()
+
+class TurnPhase(Enum):
+    PLAYER_SELECT = auto()
+    PLAYER_RESOLVE = auto()
+    ENEMY_AI = auto()
+    ENVIRONMENT_PULSE = auto()
 
 
 class Direction(Enum):
