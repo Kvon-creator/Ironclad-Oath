@@ -329,6 +329,101 @@ class CrossroadsGame:
             print(row_str)
         print("Legend: [P#] Mercenaries | [E#] Imperials | [ET] Bloom Thrall | [ % ] Bloom Spores | [###] Stone Ruins")
 
+    def _get_player_movement(self, u: Unit):
+        valid_keys = {"w", "a", "s", "d"}
+        while True:
+            mv = input("Move (W/A/S/D steps, e.g., 'ww' or Enter to stay): ").strip().lower()
+            if not mv:
+                return  # Stay in place
+
+            invalid_chars = [char for char in mv if char not in valid_keys]
+            if invalid_chars:
+                print(f"[Invalid input: '{''.join(invalid_chars)}'. Use only W, A, S, or D.]")
+                continue
+
+            # Simulate the entire path before committing
+            sim_x, sim_y = u.x, u.y
+            accumulated_fatigue = 0.0
+            path_valid = True
+
+            for step in mv:
+                dx, dy = 0, 0
+                if step == "w": dy = -1
+                elif step == "s": dy = 1
+                elif step == "a": dx = -1
+                elif step == "d": dx = 1
+
+                nx, ny = sim_x + dx, sim_y + dy
+
+                # Boundary check
+                if not (0 <= nx < self.width and 0 <= ny < self.height):
+                    print(f"[Move error: Step '{step}' would move out of grid boundaries at ({nx}, {ny}).]")
+                    path_valid = False
+                    break
+
+                # Collision check
+                occupant = self.get_unit_at(nx, ny)
+                if occupant and occupant != u:
+                    print(f"[Move error: Step '{step}' blocked by {occupant.name} at ({nx}, {ny}).]")
+                    path_valid = False
+                    break
+
+                if (nx, ny) in self.ruin_tiles:
+                    print(f"[Move error: Step '{step}' blocked by Stone Ruins at ({nx}, {ny}).]")
+                    path_valid = False
+                    break
+
+                sim_x, sim_y = nx, ny
+                accumulated_fatigue += 2.0 if (nx, ny) in self.bloom_tiles else 1.0
+
+            if path_valid:
+                u.x, u.y = sim_x, sim_y
+                u.fatigue = min(u.max_fatigue, u.fatigue + accumulated_fatigue)
+                print(f"Moved to ({u.x}, {u.y}). Fatigue accrued: +{accumulated_fatigue:.1f}")
+                break
+
+    def _get_player_attack(self, u: Unit):
+        targets = []
+        for enemy in [e for e in self.units if e.faction == "ENEMY" and e.is_alive]:
+            dist = abs(u.x - enemy.x) + abs(u.y - enemy.y)
+            if dist <= u.attack_range:
+                targets.append(enemy)
+
+        if not targets:
+            print("No targets within weapon range.")
+            return
+
+        print("Available targets in range:")
+        for idx, t in enumerate(targets):
+            angle, _ = self.determine_relative_facing(u, t)
+            print(f"  [{idx}] {t.name} at ({t.x}, {t.y}) - Vector: {angle.name}")
+
+        while True:
+            pick = input(f"Select target index (0-{len(targets)-1}) or press Enter to pass: ").strip()
+            if pick == "":
+                print("Skipped attack phase.")
+                break
+            try:
+                val = int(pick)
+                if 0 <= val < len(targets):
+                    self.execute_combat(u, targets[val])
+                    break
+                else:
+                    print(f"[Invalid choice: Enter a number between 0 and {len(targets)-1}.]")
+            except ValueError:
+                print("[Invalid choice: Please enter a valid integer index or press Enter.]")
+
+    def _get_player_facing(self, u: Unit):
+        valid_inputs = {"w", "a", "s", "d", ""}
+        while True:
+            fc = input("Set final facing direction (W=North, D=East, S=South, A=West) [Enter keeps current]: ").strip().lower()
+            if fc in valid_inputs:
+                if fc != "":
+                    u.facing = Direction.from_str(fc)
+                print(f"{u.name} is facing {u.facing.name}.")
+                break
+            print(f"[Invalid direction: '{fc}'. Choose from W, A, S, or D.]")
+
     def run_turn(self):
         self.update_auras()
         self.render_map()
@@ -349,44 +444,14 @@ class CrossroadsGame:
             if u.in_shield_wall:
                 print("[ACTIVE FORMATION: Shield Wall Lock]")
 
-            # 1. Movement
-            mv = input("Move (W/A/S/D steps, e.g., 'ww' or enter to stay): ").strip().lower()
-            for step in mv:
-                dx, dy = 0, 0
-                if step == "w": dy = -1
-                elif step == "s": dy = 1
-                elif step == "a": dx = -1
-                elif step == "d": dx = 1
+            # 1. Validated Movement
+            self._get_player_movement(u)
 
-                nx, ny = u.x + dx, u.y + dy
-                if 0 <= nx < self.width and 0 <= ny < self.height and not self.get_unit_at(nx, ny) and (nx, ny) not in self.ruin_tiles:
-                    u.x, u.y = nx, ny
-                    move_tax = 2.0 if (nx, ny) in self.bloom_tiles else 1.0
-                    u.fatigue = min(u.max_fatigue, u.fatigue + move_tax)
+            # 2. Validated Attack
+            self._get_player_attack(u)
 
-            # 2. Attack check
-            targets = []
-            for enemy in [e for e in self.units if e.faction == "ENEMY" and e.is_alive]:
-                dist = abs(u.x - enemy.x) + abs(u.y - enemy.y)
-                if dist <= u.attack_range:
-                    targets.append(enemy)
-
-            if targets:
-                print("Available targets in range:")
-                for idx, t in enumerate(targets):
-                    angle, _ = self.determine_relative_facing(u, t)
-                    print(f"  [{idx}] {t.name} at ({t.x}, {t.y}) - Vector: {angle.name}")
-                pick = input(f"Select target index (0-{len(targets)-1}) or enter to pass: ").strip()
-                if pick.isdigit() and int(pick) < len(targets):
-                    self.execute_combat(u, targets[int(pick)])
-            else:
-                print("No targets within weapon range.")
-
-            # 3. Facing choice
-            fc = input("Set final facing direction (W=North, D=East, S=South, A=West) [Default keeps current]: ").strip().lower()
-            new_dir = Direction.from_str(fc)
-            if new_dir:
-                u.facing = new_dir
+            # 3. Validated Facing Direction
+            self._get_player_facing(u)
 
         # Check win condition
         if not any(e.is_alive for e in self.units if e.faction == "ENEMY"):
@@ -451,4 +516,8 @@ if __name__ == "__main__":
     print("Welcome to Ironclad Oath: The Crossroads Outpost Prototype.")
     print("Direct squad movement, protect your unarmored flanks, and watch the Bloom.")
     while True:
-        game.run_turn()
+        try:
+            game.run_turn()
+        except KeyboardInterrupt:
+            print("\nSession interrupted. Exiting tactical simulation.")
+            sys.exit(0)
