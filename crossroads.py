@@ -241,7 +241,6 @@ class CrossroadsGame:
             u.in_shield_wall = False
             if not u.is_alive or not u.has_shield:
                 continue
-            # Check adjacent allies
             for d in [Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST]:
                 neighbor = self.get_unit_at(u.x + d.dx, u.y + d.dy)
                 if neighbor and neighbor.faction == u.faction and neighbor.has_shield and neighbor.facing == u.facing:
@@ -251,7 +250,6 @@ class CrossroadsGame:
     def determine_relative_facing(self, attacker: Unit, defender: Unit) -> Tuple[FacingAngle, str]:
         dx = attacker.x - defender.x
         dy = attacker.y - defender.y
-        # Normalize to dominant axis
         if abs(dx) > abs(dy):
             approach = Direction.EAST if dx > 0 else Direction.WEST
         else:
@@ -270,32 +268,30 @@ class CrossroadsGame:
         attacker.fatigue = min(attacker.max_fatigue, attacker.fatigue + cost)
 
         angle, armor_slot = self.determine_relative_facing(attacker, defender)
-        print(f"\n>> {attacker.name} strikes {defender.name} from the {angle.name}!")[cite: 2]
+        print(f"\n>> {attacker.name} strikes {defender.name} from the {angle.name}!")
 
-        # Shield wall frontal deflection
         if defender.in_shield_wall and angle == FacingAngle.FRONT and attacker.attack_range > 1:
             print(f"[{defender.name}'s Shield Wall deflected all incoming projectile force!]")
             return
 
-        raw_dmg = attacker.attack_power * angle.value[cite: 2]
+        raw_dmg = attacker.attack_power * angle.value
         armor_val = defender.armor[armor_slot]
 
         if angle == FacingAngle.REAR:
-            unmitigated = raw_dmg * 0.75 + max(0.0, (raw_dmg * 0.25) - armor_val)[cite: 2]
+            unmitigated = raw_dmg * 0.75 + max(0.0, (raw_dmg * 0.25) - armor_val)
             absorbed = min(armor_val, raw_dmg * 0.25)
         else:
-            absorbed = min(armor_val, raw_dmg * 0.65)[cite: 2]
+            absorbed = min(armor_val, raw_dmg * 0.65)
             unmitigated = raw_dmg - absorbed
 
-        # Apply armor break & HP damage
-        defender.armor[armor_slot] = max(0.0, defender.armor[armor_slot] - attacker.armor_shred)[cite: 2]
-        defender.hp = max(0.0, defender.hp - unmitigated)[cite: 2]
+        defender.armor[armor_slot] = max(0.0, defender.armor[armor_slot] - attacker.armor_shred)
+        defender.hp = max(0.0, defender.hp - unmitigated)
 
         if not defender.is_afflicted:
-            defender.poise = max(0.0, defender.poise - attacker.poise_damage)[cite: 2]
+            defender.poise = max(0.0, defender.poise - attacker.poise_damage)
             if defender.poise <= 0.0:
-                defender.is_staggered = True[cite: 2]
-                print(f"** {defender.name} has been STAGGERED! **"[cite: 2])
+                defender.is_staggered = True
+                print(f"** {defender.name} has been STAGGERED! **")
 
         print(f"Result: {unmitigated:.1f} HP damage dealt ({absorbed:.1f} absorbed by {armor_slot} armor).")
         print(f"{defender.name} HP: {defender.hp:.1f}/{defender.max_hp} | {armor_slot} Armor left: {defender.armor[armor_slot]:.1f}")
@@ -303,18 +299,17 @@ class CrossroadsGame:
         if not defender.is_alive:
             print(f"*** {defender.name} has fallen in battle! ***")
             if defender.is_afflicted:
-                print(f"Spore Burst: The Thrall detonates, spreading Bloom spores across ({defender.x}, {defender.y})!")[cite: 2]
+                print(f"Spore Burst: The Thrall detonates, spreading Bloom spores across ({defender.x}, {defender.y})!")
                 self.bloom_tiles.add((defender.x, defender.y))
 
     def apply_bloom_hazard(self):
-        print("\n--- Environmental Phase: Bloom Spore Pulse ---")[cite: 2]
+        print("\n--- Environmental Phase: Bloom Spore Pulse ---")
         for u in self.units:
             if u.is_alive and (u.x, u.y) in self.bloom_tiles:
-                u.fatigue = min(u.max_fatigue, u.fatigue + 2.0)[cite: 2]
-                # Corrode all armor sectors by 5%
+                u.fatigue = min(u.max_fatigue, u.fatigue + 2.0)
                 for k in u.armor:
-                    u.armor[k] = max(0.0, u.armor[k] * 0.95)[cite: 2]
-                print(f"[BLOOM TOXIN] {u.name} at ({u.x},{u.y}) suffers +2 Fatigue and 5% armor corrosion!"[cite: 2])
+                    u.armor[k] = max(0.0, u.armor[k] * 0.95)
+                print(f"[BLOOM TOXIN] {u.name} at ({u.x},{u.y}) suffers +2 Fatigue and 5% armor corrosion!")
 
     def render_map(self):
         print("\n   " + " ".join(f" {x} " for x in range(self.width)))
@@ -343,7 +338,7 @@ class CrossroadsGame:
 
         for u in active_player_units:
             if u.is_staggered:
-                print(f"\n{u.name} is recovering from Stagger and cannot act this turn."[cite: 2])
+                print(f"\n{u.name} is recovering from Stagger and cannot act this turn.")
                 u.is_staggered = False
                 u.poise = u.max_poise * 0.5
                 continue
@@ -366,7 +361,7 @@ class CrossroadsGame:
                 nx, ny = u.x + dx, u.y + dy
                 if 0 <= nx < self.width and 0 <= ny < self.height and not self.get_unit_at(nx, ny) and (nx, ny) not in self.ruin_tiles:
                     u.x, u.y = nx, ny
-                    move_tax = 2.0 if (nx, ny) in self.bloom_tiles else 1.0[cite: 2]
+                    move_tax = 2.0 if (nx, ny) in self.bloom_tiles else 1.0
                     u.fatigue = min(u.max_fatigue, u.fatigue + move_tax)
 
             # 2. Attack check
@@ -404,23 +399,20 @@ class CrossroadsGame:
         self.update_auras()
         for enemy in [e for e in self.units if e.faction == "ENEMY" and e.is_alive]:
             if enemy.is_staggered:
-                print(f"{enemy.name} is staggered and loses their turn."[cite: 2])
+                print(f"{enemy.name} is staggered and loses their turn.")
                 enemy.is_staggered = False
                 enemy.poise = enemy.max_poise * 0.5
                 continue
 
-            # Target closest player
             living_players = [p for p in self.units if p.faction == "PLAYER" and p.is_alive]
             if not living_players:
                 break
             living_players.sort(key=lambda p: abs(p.x - enemy.x) + abs(p.y - enemy.y))
             target = living_players[0]
 
-            # Step toward target
             step_x = 1 if target.x > enemy.x else (-1 if target.x < enemy.x else 0)
             step_y = 1 if target.y > enemy.y else (-1 if target.y < enemy.y else 0)
 
-            # Prioritize moving on open tiles
             cand_x, cand_y = enemy.x + step_x, enemy.y
             if step_x != 0 and 0 <= cand_x < self.width and not self.get_unit_at(cand_x, enemy.y) and (cand_x, enemy.y) not in self.ruin_tiles:
                 enemy.x = cand_x
@@ -429,7 +421,6 @@ class CrossroadsGame:
                 if step_y != 0 and 0 <= cand_y < self.height and not self.get_unit_at(enemy.x, cand_y) and (enemy.x, cand_y) not in self.ruin_tiles:
                     enemy.y = cand_y
 
-            # Re-orient facing toward the player
             dx, dy = target.x - enemy.x, target.y - enemy.y
             if abs(dx) > abs(dy):
                 enemy.facing = Direction.EAST if dx > 0 else Direction.WEST
@@ -444,7 +435,6 @@ class CrossroadsGame:
         self.apply_bloom_hazard()
         for u in self.units:
             if u.is_alive:
-                # Slight passive fatigue recovery if not exhausted
                 u.fatigue = max(0.0, u.fatigue - 1.0)
 
         # Check loss condition
