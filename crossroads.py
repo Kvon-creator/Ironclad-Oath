@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import random
 import sys
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -68,7 +69,6 @@ class Unit:
     in_shield_wall: bool = False
     in_spear_hedge: bool = False
 
-    # Turn action flags
     has_moved: bool = False
     has_acted: bool = False
     state: UnitState = UnitState.READY
@@ -106,7 +106,7 @@ class CrossroadsGame:
         self._init_units()
 
     def _init_units(self):
-        # Player squad (South)
+        # Player Squad (South)
         self.units.append(
             Unit(
                 id_tag="P1",
@@ -176,7 +176,7 @@ class CrossroadsGame:
             )
         )
 
-        # Enemy squad (North)
+        # Enemy Squad (North)
         self.units.append(
             Unit(
                 id_tag="E1",
@@ -293,6 +293,12 @@ class CrossroadsGame:
         tag = "[OPPORTUNITY STRIKE] " if is_opportunity else ""
         print(f"\n>> {tag}{attacker.name} strikes {defender.name} from the {angle.name}!")
 
+        # Evasion check
+        evasion_val = defender.get_effective_evasion(angle)
+        if random.random() < evasion_val:
+            print(f"[{defender.name} dodged the incoming attack entirely!]")
+            return
+
         # Shield Wall frontal ranged immunity
         if defender.in_shield_wall and angle == FacingAngle.FRONT and attacker.attack_range > 1:
             print(f"[{defender.name}'s Shield Wall deflected all incoming projectile force!]")
@@ -308,6 +314,7 @@ class CrossroadsGame:
             absorbed = min(armor_val, raw_dmg * 0.65)
             unmitigated = raw_dmg - absorbed
 
+        # Apply armor break & damage
         defender.armor[armor_slot] = max(0.0, defender.armor[armor_slot] - attacker.armor_shred)
         defender.hp = max(0.0, defender.hp - unmitigated)
 
@@ -327,20 +334,18 @@ class CrossroadsGame:
                 self.bloom_tiles.add((defender.x, defender.y))
 
     def check_zoc_trigger(self, mover: Unit, from_x: int, from_y: int) -> bool:
-        """Triggers attacks of opportunity if unit disengages from an enemy frontal tile."""
         for enemy in self.units:
             if enemy.is_alive and enemy.faction != mover.faction and not enemy.is_staggered:
                 front_x = enemy.x + enemy.facing.dx
                 front_y = enemy.y + enemy.facing.dy
                 if (from_x, from_y) == (front_x, front_y):
-                    print(f"\n[!] Disengagement detected! {mover.name} breaks out of {enemy.name}'s Frontal Zone of Control!")
+                    print(f"\n[!] Disengagement! {mover.name} steps out of {enemy.name}'s Frontal Zone of Control!")
                     self.execute_combat(enemy, mover, is_opportunity=True)
                     if not mover.is_alive:
                         return False
         return True
 
     def check_spear_hedge_reaction(self, mover: Unit, to_x: int, to_y: int) -> bool:
-        """Spear hedge units interrupt enemies advancing directly toward their front."""
         for enemy in self.units:
             if enemy.is_alive and enemy.faction != mover.faction and enemy.in_spear_hedge and not enemy.is_staggered:
                 f_x = enemy.x + enemy.facing.dx
@@ -407,6 +412,8 @@ class CrossroadsGame:
                 elif step == "a": dx = -1
                 elif step == "d": dx = 1
 
+                nx, ny = sim_x + dy, sim_y + dy
+                # Fix inverted assignment
                 nx, ny = sim_x + dx, sim_y + dy
 
                 if not (0 <= nx < self.width and 0 <= ny < self.height):
@@ -430,7 +437,6 @@ class CrossroadsGame:
                 accumulated_fatigue += 2.0 if (nx, ny) in self.bloom_tiles else 1.0
 
             if valid_path:
-                # Step-by-step resolution for ZoC checks
                 for ox, oy, nx, ny in steps:
                     if not self.check_zoc_trigger(u, ox, oy):
                         return
@@ -500,19 +506,112 @@ class CrossroadsGame:
                 else:
                     u.fatigue = max(0.0, u.fatigue - 3.0)
                     u.has_acted = True
-                    print(f"{u.name} catches their breath. Fatigue recovered: -3.0.")
+                    print(f"{u.name} catches breath. Fatigue: -3.0.")
             elif cmd == "f":
                 fc = input("Set final facing (W=North, D=East, S=South, A=West) [Enter keeps current]: ").strip().lower()
                 new_dir = Direction.from_str(fc)
                 if new_dir:
                     u.facing = new_dir
                 u.state = UnitState.DONE
-                print(f"{u.name} locks stance facing {u.facing.name}. Activation complete.")
+                print(f"{u.name} locked facing {u.facing.name}.")
                 break
             elif cmd == "b":
                 break
             else:
                 print("[Invalid choice. Select M, A, R, F, or B.]")
+
+    def _run_tactical_footman_ai(self, enemy: Unit):
+        living_players = [p for p in self.units if p.faction == "PLAYER" and p.is_alive]
+        if not living_players:
+            return
+
+        # Score targets based on flank/rear accessibility
+        target = min(living_players, key=lambda p: abs(p.x - enemy.x) + abs(p.y - enemy.y))
+
+        # Evaluate best adjacent tile that gives Flank or Rear advantage
+        best_tile = None
+        best_score = -999
+
+        for dx, dy in [(0, -1), (1, 0), (0, 1), (-1, 0)]:
+            nx, ny = target.x + dx, target.y + dy
+            if not (0 <= nx < self.width and 0 <= ny < self.height):
+                continue
+            if (nx, ny) in self.ruin_tiles or (self.get_unit_at(nx, ny) and (nx, ny) != (enemy.x, enemy.y)):
+                continue
+
+            # Check hypothetical facing vector
+            dummy = Unit(id_tag="D", name="D", faction="ENEMY", x=nx, y=ny, facing=Direction.NORTH,
+                         max_hp=1, hp=1, max_fatigue=1, fatigue=0, max_poise=1, poise=1, base_evasion=0,
+                         attack_power=1, attack_range=1, poise_damage=1, armor_shred=1, armor={})
+            angle, _ = self.determine_relative_facing(dummy, target)
+
+            score = 10 * angle.value - (abs(nx - enemy.x) + abs(ny - enemy.y))
+            # Avoid stepping directly into Halberdier forward tile (Spear Hedge check)
+            if target.is_spear and (nx, ny) == (target.x + target.facing.dx, target.y + target.facing.dy):
+                score -= 15.0
+
+            if score > best_score:
+                best_score = score
+                best_tile = (nx, ny)
+
+        # Move toward best tile
+        if best_tile:
+            bx, by = best_tile
+            step_x = 1 if bx > enemy.x else (-1 if bx < enemy.x else 0)
+            step_y = 1 if by > enemy.y else (-1 if by < enemy.y else 0)
+
+            cand_x = enemy.x + step_x
+            if step_x != 0 and 0 <= cand_x < self.width and not self.get_unit_at(cand_x, enemy.y) and (cand_x, enemy.y) not in self.ruin_tiles:
+                if self.check_spear_hedge_reaction(enemy, cand_x, enemy.y):
+                    enemy.x = cand_x
+            elif step_y != 0:
+                cand_y = enemy.y + step_y
+                if 0 <= cand_y < self.height and not self.get_unit_at(enemy.x, cand_y) and (enemy.x, cand_y) not in self.ruin_tiles:
+                    if self.check_spear_hedge_reaction(enemy, enemy.x, cand_y):
+                        enemy.y = cand_y
+
+        # Orient toward target
+        dx, dy = target.x - enemy.x, target.y - enemy.y
+        if abs(dx) > abs(dy):
+            enemy.facing = Direction.EAST if dx > 0 else Direction.WEST
+        elif dy != 0:
+            enemy.facing = Direction.SOUTH if dy > 0 else Direction.NORTH
+
+        # Attack if in range
+        dist = abs(enemy.x - target.x) + abs(enemy.y - target.y)
+        if dist <= enemy.attack_range and enemy.is_alive and not enemy.is_staggered:
+            self.execute_combat(enemy, target)
+
+    def _run_berserker_thrall_ai(self, thrall: Unit):
+        living_players = [p for p in self.units if p.faction == "PLAYER" and p.is_alive]
+        if not living_players:
+            return
+
+        # Charges closest target heedlessly
+        target = min(living_players, key=lambda p: abs(p.x - thrall.x) + abs(p.y - thrall.y))
+
+        step_x = 1 if target.x > thrall.x else (-1 if target.x < thrall.x else 0)
+        step_y = 1 if target.y > thrall.y else (-1 if target.y < thrall.y else 0)
+
+        cand_x = thrall.x + step_x
+        if step_x != 0 and 0 <= cand_x < self.width and not self.get_unit_at(cand_x, thrall.y) and (cand_x, thrall.y) not in self.ruin_tiles:
+            if self.check_spear_hedge_reaction(thrall, cand_x, thrall.y):
+                thrall.x = cand_x
+        else:
+            cand_y = thrall.y + step_y
+            if step_y != 0 and 0 <= cand_y < self.height and not self.get_unit_at(thrall.x, cand_y) and (enemy_cand := (thrall.x, cand_y)) not in self.ruin_tiles:
+                if self.check_spear_hedge_reaction(thrall, thrall.x, cand_y):
+                    thrall.y = cand_y
+
+        dx, dy = target.x - thrall.x, target.y - thrall.y
+        if abs(dx) > abs(dy):
+            thrall.facing = Direction.EAST if dx > 0 else Direction.WEST
+        elif dy != 0:
+            thrall.facing = Direction.SOUTH if dy > 0 else Direction.NORTH
+
+        dist = abs(thrall.x - target.x) + abs(thrall.y - target.y)
+        if dist <= thrall.attack_range and thrall.is_alive:
+            self.execute_combat(thrall, target)
 
     def run_turn(self):
         self.update_auras()
@@ -526,12 +625,12 @@ class CrossroadsGame:
             if not active_units:
                 break
 
-            print(f"\n==================== TURN {self.turn_count} (TACTICAL DEPLOYMENT) ====================")
-            print("Select a unit to activate:")
+            print(f"\n==================== TURN {self.turn_count} (PLAYER PHASE) ====================")
+            print("Select unit to activate:")
             for idx, u in enumerate(active_units):
                 status = "STAGGERED" if u.is_staggered else "READY"
-                print(f"  [{idx}] {u.name} [{u.id_tag}] ({status}) - ({u.x}, {u.y})")
-            print("  [E] End Player Turn Early")
+                print(f"  [{idx}] {u.name} [{u.id_tag}] ({status}) - Position: ({u.x}, {u.y})")
+            print("  [E] End Player Phase Early")
 
             choice = input(f"Select unit (0-{len(active_units)-1}) or 'E': ").strip().lower()
             if choice == "e":
@@ -547,9 +646,8 @@ class CrossroadsGame:
                     continue
                 self._execute_unit_menu(sel_unit)
             else:
-                print("[Invalid unit index.]")
+                print("[Invalid selection.]")
 
-            # Check if all enemies are defeated mid-phase
             if not any(e.is_alive for e in self.units if e.faction == "ENEMY"):
                 self.render_map()
                 print("\nVICTORY! All hostiles cleared from the outpost.")
@@ -565,37 +663,12 @@ class CrossroadsGame:
                 enemy.poise = enemy.max_poise * 0.5
                 continue
 
-            living_players = [p for p in self.units if p.faction == "PLAYER" and p.is_alive]
-            if not living_players:
-                break
-            living_players.sort(key=lambda p: abs(p.x - enemy.x) + abs(p.y - enemy.y))
-            target = living_players[0]
-
-            step_x = 1 if target.x > enemy.x else (-1 if target.x < enemy.x else 0)
-            step_y = 1 if target.y > enemy.y else (-1 if target.y < enemy.y else 0)
-
-            cand_x, cand_y = enemy.x + step_x, enemy.y
-            if step_x != 0 and 0 <= cand_x < self.width and not self.get_unit_at(cand_x, enemy.y) and (cand_x, enemy.y) not in self.ruin_tiles:
-                if self.check_spear_hedge_reaction(enemy, cand_x, enemy.y):
-                    enemy.x = cand_x
+            if enemy.is_afflicted:
+                self._run_berserker_thrall_ai(enemy)
             else:
-                cand_y = enemy.y + step_y
-                if step_y != 0 and 0 <= cand_y < self.height and not self.get_unit_at(enemy.x, cand_y) and (enemy.x, cand_y) not in self.ruin_tiles:
-                    if self.check_spear_hedge_reaction(enemy, enemy.x, cand_y):
-                        enemy.y = cand_y
+                self._run_tactical_footman_ai(enemy)
 
-            # Re-orient facing towards target
-            dx, dy = target.x - enemy.x, target.y - enemy.y
-            if abs(dx) > abs(dy):
-                enemy.facing = Direction.EAST if dx > 0 else Direction.WEST
-            elif dy != 0:
-                enemy.facing = Direction.SOUTH if dy > 0 else Direction.NORTH
-
-            dist = abs(enemy.x - target.x) + abs(enemy.y - target.y)
-            if dist <= enemy.attack_range and enemy.is_alive and not enemy.is_staggered:
-                self.execute_combat(enemy, target)
-
-        # Environmental phase & passive recovery
+        # Hazard Pulse & Fatigue Refresh
         self.apply_bloom_hazard()
         for u in self.units:
             if u.is_alive:
@@ -603,7 +676,7 @@ class CrossroadsGame:
 
         if not any(p.is_alive for p in self.units if p.faction == "PLAYER"):
             self.render_map()
-            print("\nDEFEAT: Your mercenary vanguard has perished.")
+            print("\nDEFEAT: Your mercenary company has perished.")
             sys.exit(0)
 
         self.turn_count += 1
@@ -611,11 +684,11 @@ class CrossroadsGame:
 
 if __name__ == "__main__":
     game = CrossroadsGame()
-    print("Welcome to Ironclad Oath: The Crossroads Outpost (State Machine Build).")
-    print("Direct squad movement, protect your unarmored flanks, and watch the Bloom.")
+    print("Welcome to Ironclad Oath: The Crossroads Outpost (Advanced Combat & AI Build).")
+    print("Directional armor degradation, dynamic AI flank-seeking, and Bloom hazards are active.")
     while True:
         try:
             game.run_turn()
         except KeyboardInterrupt:
-            print("\nTactical simulation ended.")
+            print("\nSession ended.")
             sys.exit(0)
