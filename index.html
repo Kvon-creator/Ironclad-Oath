@@ -50,6 +50,35 @@
       image-rendering: pixelated;
       cursor: crosshair;
     }
+
+    #btn-speed-toggle {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 25;
+      background: rgba(22, 27, 34, 0.88);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      font-size: 0.72rem;
+      font-weight: bold;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      backdrop-filter: blur(2px);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      transition: all 0.15s;
+    }
+    #btn-speed-toggle:hover {
+      border-color: var(--accent-gold);
+      color: #fff;
+    }
+    #btn-speed-toggle.active-2x {
+      background: rgba(227, 179, 65, 0.25);
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+      box-shadow: 0 0 10px rgba(227, 179, 65, 0.4);
+    }
+
     #sidebar {
       width: 330px;
       display: flex;
@@ -193,7 +222,6 @@
     .phase-blue { background: linear-gradient(90deg, transparent, rgba(31, 111, 235, 0.92) 20%, rgba(31, 111, 235, 0.92) 80%, transparent); color: #fff; }
     .phase-red  { background: linear-gradient(90deg, transparent, rgba(218, 54, 51, 0.92) 20%, rgba(218, 54, 51, 0.92) 80%, transparent); color: #fff; }
 
-    /* End Screen Modal */
     #endscreen-modal {
       display: none;
       position: absolute;
@@ -239,6 +267,7 @@
 
   <div id="game-layout">
     <div id="canvas-container">
+      <button id="btn-speed-toggle">SPEED: 1x</button>
       <canvas id="stage" width="672" height="672"></canvas>
       <div id="forecast-modal"></div>
       <div id="move-confirm-modal">
@@ -296,6 +325,9 @@
     </div>
   </div>
 
+  <!-- External Detailed Sprite Engine -->
+  <script src="sprites.js"></script>
+
   <script>
     const TILE_SIZE = 42;
     const COLS = 16;
@@ -329,6 +361,7 @@
     ]);
 
     let turnCount = 1;
+    let gameSpeed = 1;
     let selectedUnit = null;
     let actionMode = null; 
     let pendingMoveTile = null; 
@@ -338,7 +371,20 @@
     let isMovingAnimationActive = false;
     let isGameOver = false;
     let floatingTexts = [];
-    let fireHazards = []; // { x, y, turnsLeft }
+    let fireHazards = [];
+
+    const btnSpeedToggle = document.getElementById("btn-speed-toggle");
+    btnSpeedToggle.onclick = () => {
+      if (gameSpeed === 1) {
+        gameSpeed = 2;
+        btnSpeedToggle.textContent = "SPEED: 2x";
+        btnSpeedToggle.classList.add("active-2x");
+      } else {
+        gameSpeed = 1;
+        btnSpeedToggle.textContent = "SPEED: 1x";
+        btnSpeedToggle.classList.remove("active-2x");
+      }
+    };
 
     const SKILL_DATA = {
       "Vanguard":   { name: "Iron Bastion", desc: "Bolsters frontal plate by +15, locks Shield Wall, and halves frontal damage.", cost: 3, type: "self" },
@@ -546,7 +592,7 @@
         x: gx * TILE_SIZE + TILE_SIZE / 2,
         y: gy * TILE_SIZE + 10,
         alpha: 1.0,
-        life: 50
+        life: 50 / gameSpeed
       });
     }
 
@@ -619,7 +665,7 @@
           return false;
         }
 
-        let frames = 8;
+        let frames = Math.max(2, Math.round(8 / gameSpeed));
         let dx = (step.x - unit.renderX) / frames;
         let dy = (step.y - unit.renderY) / frames;
 
@@ -631,7 +677,7 @@
         for (let f = 0; f < frames; f++) {
           unit.renderX += dx;
           unit.renderY += dy;
-          await delay(16);
+          await delay(16 / gameSpeed);
         }
 
         unit.x = step.x;
@@ -769,7 +815,7 @@
       let dirY = Math.sign(defender.y - attacker.y);
       attacker.offsetX = dirX * 9;
       attacker.offsetY = dirY * 9;
-      setTimeout(() => { attacker.offsetX = 0; attacker.offsetY = 0; }, 160);
+      setTimeout(() => { attacker.offsetX = 0; attacker.offsetY = 0; }, 160 / gameSpeed);
 
       let res = calculateFacingVector(attacker, defender);
       let dodgeChance = calculateDodgeProbability(attacker, defender, res.angle);
@@ -780,7 +826,7 @@
         let perpY = dirX;
         defender.offsetX = perpX * 10;
         defender.offsetY = perpY * 10;
-        setTimeout(() => { defender.offsetX = 0; defender.offsetY = 0; }, 180);
+        setTimeout(() => { defender.offsetX = 0; defender.offsetY = 0; }, 180 / gameSpeed);
         log(`[DODGE] <b>${defender.name}</b> evaded strike from <b>${attacker.name}</b>!`);
         return;
       }
@@ -801,10 +847,10 @@
 
       if (isCrit) spawnFloatingText("CRITICAL!", "var(--accent-gold)", defender.x, defender.y);
 
-      defender.flashRedTimer = 8;
+      defender.flashRedTimer = Math.round(8 / gameSpeed);
       defender.offsetX = dirX * 7;
       defender.offsetY = dirY * 7;
-      setTimeout(() => { defender.offsetX = 0; defender.offsetY = 0; }, 160);
+      setTimeout(() => { defender.offsetX = 0; defender.offsetY = 0; }, 160 / gameSpeed);
 
       let rawDamage = (attacker.atk + exertionBonus) * res.mult * critMult;
       let armVal = defender.armor[res.slot];
@@ -896,7 +942,7 @@
           let victim = getUnitAt(t.x, t.y);
           if (victim && victim.faction !== u.faction) {
             victim.hp = Math.max(0, victim.hp - 24);
-            victim.flashRedTimer = 8;
+            victim.flashRedTimer = Math.round(8 / gameSpeed);
             spawnFloatingText("-24 HP", "var(--enemy-red)", victim.x, victim.y);
             log(`Cleaving blade struck <b>${victim.name}</b> for 24 damage!`);
           }
@@ -907,7 +953,7 @@
           let victim = getUnitAt(u.x + d.dx, u.y + d.dy);
           if (victim && victim.faction !== u.faction) {
             victim.hp = Math.max(0, victim.hp - 12);
-            victim.flashRedTimer = 8;
+            victim.flashRedTimer = Math.round(8 / gameSpeed);
             u.hp = Math.min(u.maxHp, u.hp + 12);
             spawnFloatingText("-12 HP", "var(--bloom-green)", victim.x, victim.y);
             log(`<b>${u.name}</b> siphoned 12 HP from <b>${victim.name}</b>!`);
@@ -931,17 +977,16 @@
         spawnFloatingText("SNIPER!", "var(--accent-gold)", victim.x, victim.y);
         let dmg = 28;
         victim.hp = Math.max(0, victim.hp - dmg);
-        victim.flashRedTimer = 8;
+        victim.flashRedTimer = Math.round(8 / gameSpeed);
         log(`Dead-Eye Volley struck <b>${victim.name}</b> across range for ${dmg} DMG!`);
       } else if (actor.role === "Flyer" && victim) {
         spawnFloatingText("DIVE BOMB!", "var(--player-blue)", victim.x, victim.y);
         victim.hp = Math.max(0, victim.hp - 24);
         victim.poise = Math.max(0, victim.poise - 30);
         if (victim.poise <= 0) victim.staggered = true;
-        victim.flashRedTimer = 8;
+        victim.flashRedTimer = Math.round(8 / gameSpeed);
         log(`Skyguard dive-bombed <b>${victim.name}</b> inflicting heavy Poise shock!`);
       } else if (actor.role === "Pyromancer") {
-        // Cross Pattern AoE (center + 4 cardinal tiles)
         let aoeTiles = [
           { x: targetX, y: targetY },
           { x: targetX, y: targetY - 1 },
@@ -954,7 +999,6 @@
           if (t.x >= 0 && t.x < COLS && t.y >= 0 && t.y < ROWS && !isWaterTile(t.x, t.y)) {
             spawnFloatingText("IGNITE!", "var(--enemy-red)", t.x, t.y);
 
-            // Add lingering fire hazard for 3 turns
             let existing = fireHazards.find(f => f.x === t.x && f.y === t.y);
             if (existing) {
               existing.turnsLeft = 3;
@@ -966,7 +1010,7 @@
             if (occupant) {
               let dmg = (t.x === targetX && t.y === targetY) ? 30 : 18;
               occupant.hp = Math.max(0, occupant.hp - dmg);
-              occupant.flashRedTimer = 8;
+              occupant.flashRedTimer = Math.round(8 / gameSpeed);
               log(`Flames engulfed <b>${occupant.name}</b> at (${t.x}, ${t.y}) for ${dmg} Fire DMG!`);
             }
           }
@@ -1009,19 +1053,19 @@
       banner.style.transition = "none";
 
       setTimeout(() => {
-        banner.style.transition = "left 0.4s cubic-bezier(0.1, 0.9, 0.2, 1.0)";
+        banner.style.transition = `left ${0.4 / gameSpeed}s cubic-bezier(0.1, 0.9, 0.2, 1.0)`;
         banner.style.left = "0%";
-      }, 50);
+      }, 50 / gameSpeed);
 
       setTimeout(() => {
-        banner.style.transition = "left 0.3s ease-in";
+        banner.style.transition = `left ${0.3 / gameSpeed}s ease-in`;
         banner.style.left = "100%";
         setTimeout(() => {
           banner.style.display = "none";
           isBannerPlaying = false;
           if (callback) callback();
-        }, 300);
-      }, 950);
+        }, 300 / gameSpeed);
+      }, 950 / gameSpeed);
     }
 
     function delay(ms) {
@@ -1039,7 +1083,7 @@
           enemy.staggered = false;
           enemy.poise = enemy.maxPoise * 0.5;
           log(`${enemy.name} shook off stagger.`);
-          await delay(350);
+          await delay(350 / gameSpeed);
           continue;
         }
 
@@ -1070,7 +1114,7 @@
 
         if (canUnitTarget(enemy, target) && enemy.hp > 0 && !enemy.staggered) {
           executeCombat(enemy, target);
-          await delay(450);
+          await delay(450 / gameSpeed);
         }
       }
       isEnemyPhaseActive = false;
@@ -1087,129 +1131,9 @@
       }
     }
 
-    function drawPixelUnit(u, px, py) {
-      ctx.save();
-      let bob = u.isFlying ? Math.sin(animationPulse * 2) * 3 : 0;
-      ctx.translate(px + TILE_SIZE/2 + u.offsetX, py + TILE_SIZE/2 + u.offsetY + bob);
-
-      ctx.fillStyle = "rgba(0,0,0,0.38)";
-      ctx.beginPath();
-      ctx.ellipse(0, TILE_SIZE/2 - 5 - bob, 11, 5, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      let isFlashing = u.flashRedTimer > 0;
-      if (isFlashing) u.flashRedTimer--;
-
-      let mainCol = isFlashing ? "#ff2222" : (u.faction === "PLAYER" ? "#31548e" : (u.afflicted ? "#2a4d22" : "#8c283c"));
-      let trimCol = isFlashing ? "#ffffff" : (u.faction === "PLAYER" ? "#8ea7db" : (u.afflicted ? "#598a42" : "#cb5e6c"));
-      let skin = "#e5b887";
-
-      switch(u.role) {
-        case "Vanguard":
-          ctx.fillStyle = mainCol; ctx.fillRect(-7, -8, 14, 16);
-          ctx.fillStyle = trimCol; ctx.fillRect(-5, -6, 10, 12);
-          ctx.fillStyle = "#e3b341"; ctx.fillRect(-4, -13, 8, 3);
-          ctx.fillStyle = trimCol; ctx.fillRect(-5, -10, 10, 5);
-          ctx.fillStyle = "#e3b341"; ctx.fillRect(-11, -5, 4, 11);
-          ctx.fillStyle = "#ffffff"; ctx.fillRect(8, -12, 2, 16);
-          break;
-
-        case "Halberdier":
-          ctx.fillStyle = mainCol; ctx.fillRect(-6, -7, 12, 14);
-          ctx.fillStyle = trimCol; ctx.fillRect(-4, -5, 8, 10);
-          ctx.fillStyle = trimCol; ctx.fillRect(-5, -11, 10, 5);
-          ctx.fillStyle = "#8b5a2b"; ctx.fillRect(7, -18, 2, 28);
-          ctx.fillStyle = "#e5e9f0"; ctx.fillRect(6, -21, 4, 6);
-          break;
-
-        case "Archer":
-          ctx.fillStyle = "#2d4a22"; ctx.fillRect(-6, -11, 12, 6);
-          ctx.fillStyle = skin; ctx.fillRect(-3, -6, 6, 3);
-          ctx.fillStyle = mainCol; ctx.fillRect(-5, -3, 10, 11);
-          ctx.strokeStyle = "#8b5a2b"; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(8, 0, 7, -Math.PI/2, Math.PI/2); ctx.stroke();
-          ctx.fillStyle = "#d08770"; ctx.fillRect(-9, -7, 3, 10);
-          break;
-
-        case "Flyer":
-          ctx.fillStyle = "#ffffff";
-          ctx.beginPath();
-          ctx.ellipse(-12, -4, 8, 4, -0.3, 0, Math.PI * 2);
-          ctx.ellipse(12, -4, 8, 4, 0.3, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = mainCol; ctx.fillRect(-5, -7, 10, 13);
-          ctx.fillStyle = trimCol; ctx.fillRect(-4, -11, 8, 5);
-          ctx.fillStyle = "#e5e9f0"; ctx.fillRect(6, -18, 2, 24);
-          break;
-
-        case "Pyromancer":
-          ctx.fillStyle = "#4c1d24"; ctx.fillRect(-6, -6, 12, 14);
-          ctx.fillStyle = "#8c283c"; ctx.fillRect(-4, -11, 8, 6);
-          ctx.fillStyle = "#ebcb8b";
-          let flamePulse = Math.sin(animationPulse * 4) * 2;
-          ctx.beginPath(); ctx.arc(8, -4 + flamePulse, 4, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = "#bf616a"; ctx.fillRect(7, -3 + flamePulse, 2, 2);
-          break;
-
-        case "Warden":
-          ctx.fillStyle = mainCol; ctx.fillRect(-8, -6, 16, 14);
-          ctx.fillStyle = trimCol; ctx.fillRect(-5, -11, 10, 6);
-          ctx.fillStyle = "#d8dee9"; ctx.fillRect(8, -20, 3, 26);
-          ctx.fillStyle = "#e3b341"; ctx.fillRect(6, -8, 7, 2);
-          break;
-
-        case "Apothecary":
-          ctx.fillStyle = "#2e3440"; ctx.fillRect(-5, -10, 10, 5);
-          ctx.fillStyle = skin; ctx.fillRect(-3, -6, 6, 3);
-          ctx.fillStyle = "#d8dee9"; ctx.fillRect(-5, -3, 10, 11);
-          ctx.fillStyle = "#8b5a2b"; ctx.fillRect(-8, -2, 3, 7);
-          ctx.fillStyle = "#56d364"; ctx.fillRect(7, 0, 4, 6);
-          break;
-
-        case "Duelist":
-          ctx.fillStyle = "#b48ead"; ctx.fillRect(-5, -11, 10, 5);
-          ctx.fillStyle = skin; ctx.fillRect(-3, -6, 6, 3);
-          ctx.fillStyle = mainCol; ctx.fillRect(-5, -3, 10, 11);
-          ctx.strokeStyle = "#e5e9f0"; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(7, -2, 4, 0, Math.PI); ctx.stroke();
-          ctx.fillStyle = "#4c566a"; ctx.fillRect(6, 2, 2, 6);
-          break;
-
-        case "Grafted":
-          ctx.fillStyle = "#243a1f"; ctx.fillRect(-7, -7, 14, 15);
-          ctx.fillStyle = "#4e7d32"; ctx.fillRect(-5, -5, 10, 10);
-          ctx.fillStyle = "#a3be8c";
-          ctx.fillRect(-9, -4 + Math.sin(animationPulse*3)*2, 3, 8);
-          ctx.fillRect(7, -4 - Math.sin(animationPulse*3)*2, 3, 8);
-          break;
-      }
-
-      if (u.staggered) {
-        ctx.fillStyle = "#f85149";
-        ctx.font = "bold 9px monospace";
-        ctx.fillText("STUN", -11, -14);
-      }
-
-      ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
-      let off = 14;
-      ctx.beginPath();
-      if (u.facing === DIRS.NORTH) { ctx.moveTo(0, -off); ctx.lineTo(-3, -off+4); ctx.lineTo(3, -off+4); }
-      if (u.facing === DIRS.SOUTH) { ctx.moveTo(0, off); ctx.lineTo(-3, off-4); ctx.lineTo(3, off-4); }
-      if (u.facing === DIRS.EAST)  { ctx.moveTo(off, 0); ctx.lineTo(off-4, -3); ctx.lineTo(off-4, 3); }
-      if (u.facing === DIRS.WEST)  { ctx.moveTo(-off, 0); ctx.lineTo(-off+4, -3); ctx.lineTo(-off+4, 3); }
-      ctx.fill();
-      ctx.restore();
-
-      let barW = TILE_SIZE - 10;
-      ctx.fillStyle = "#21262d";
-      ctx.fillRect(px + 5 + u.offsetX, py + TILE_SIZE - 6 + u.offsetY, barW, 2.5);
-      ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
-      ctx.fillRect(px + 5 + u.offsetX, py + TILE_SIZE - 6 + u.offsetY, barW * Math.max(0, u.hp / u.maxHp), 2.5);
-    }
-
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      animationPulse = (animationPulse + 0.05) % (Math.PI * 2);
+      animationPulse = (animationPulse + (0.05 * gameSpeed)) % (Math.PI * 2);
 
       let thrall = units.find(u => u.id === "ET" && u.hp > 0);
 
@@ -1253,14 +1177,12 @@
             ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
           }
 
-          // Bloom Spore Aura
           if (thrall && Math.abs(thrall.x - x) <= 1 && Math.abs(thrall.y - y) <= 1) {
             let pulseAlpha = 0.28 + 0.12 * Math.sin(animationPulse + (x+y));
             ctx.fillStyle = `rgba(86, 211, 100, ${pulseAlpha})`;
             ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
           }
 
-          // Lingering Fire Hazards
           let fire = fireHazards.find(f => f.x === x && f.y === y);
           if (fire) {
             let fireAlpha = 0.45 + 0.2 * Math.sin(animationPulse * 6 + (x * 3 + y));
@@ -1275,7 +1197,7 @@
         }
       }
 
-      // Range Highlights
+      // Range Overlays
       if (selectedUnit && selectedUnit.hp > 0 && !actionMode && !isEnemyPhaseActive && !isMovingAnimationActive) {
         let reach = getCombinedReach(selectedUnit);
 
@@ -1315,11 +1237,11 @@
         }
       }
 
-      // Render Units
+      // Render Units via sprites.js
       units.filter(u => u.hp > 0).forEach(u => {
         let renderX = (u.renderX !== undefined) ? u.renderX : u.x;
         let renderY = (u.renderY !== undefined) ? u.renderY : u.y;
-        drawPixelUnit(u, renderX * TILE_SIZE, renderY * TILE_SIZE);
+        drawDetailedUnitSprite(ctx, u, renderX * TILE_SIZE, renderY * TILE_SIZE, TILE_SIZE, animationPulse, DIRS);
       });
 
       // Floating Texts
@@ -1335,9 +1257,9 @@
         ctx.fillText(ft.text, ft.x, ft.y);
         ctx.restore();
 
-        ft.y -= 0.55;
+        ft.y -= 0.55 * gameSpeed;
         ft.life--;
-        ft.alpha = ft.life / 50;
+        ft.alpha = ft.life / (50 / gameSpeed);
         if (ft.life <= 0) floatingTexts.splice(i, 1);
       }
 
@@ -1578,7 +1500,6 @@
       playPhaseBanner("ENEMY PHASE", false, async () => {
         await runTacticalAISequential();
 
-        // 1. Spore Aura exposure
         units.filter(u => u.hp > 0).forEach(u => {
           if (isInsideBloomAura(u.x, u.y) && !u.isGrafted) {
             u.fatigue = Math.min(u.maxFat, u.fatigue + 2.0);
@@ -1589,13 +1510,12 @@
           }
         });
 
-        // 2. Lingering Fire Hazard ticks
         for (let i = fireHazards.length - 1; i >= 0; i--) {
           let fh = fireHazards[i];
           let occupant = getUnitAt(fh.x, fh.y);
           if (occupant) {
             occupant.hp = Math.max(0, occupant.hp - 8);
-            occupant.flashRedTimer = 6;
+            occupant.flashRedTimer = Math.round(6 / gameSpeed);
             spawnFloatingText("-8 HP", "var(--enemy-red)", fh.x, fh.y);
             log(`Lingering flames burned <b>${occupant.name}</b> at (${fh.x}, ${fh.y}) for 8 DMG!`);
           }
@@ -1630,7 +1550,7 @@
     updateAuras();
     render();
     playPhaseBanner("PLAYER PHASE", true, () => {
-      log("Grand Crossing tactical engine initialized. Pyromancer AoE & win conditions active!");
+      log("Grand Crossing tactical engine initialized. Toggle 2x speed in top-left anytime!");
     });
   </script>
 </body>
