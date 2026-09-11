@@ -137,8 +137,6 @@
     #forecast-modal {
       display: none;
       position: absolute;
-      top: 10px;
-      left: 10px;
       background: rgba(22, 27, 34, 0.95);
       border: 2px solid var(--accent-gold);
       padding: 10px;
@@ -146,6 +144,28 @@
       z-index: 10;
       width: 240px;
       pointer-events: none;
+    }
+    #move-confirm-modal {
+      display: none;
+      position: absolute;
+      background: rgba(22, 27, 34, 0.95);
+      border: 2px solid var(--player-blue);
+      padding: 8px;
+      font-size: 0.75rem;
+      z-index: 20;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+      text-align: center;
+    }
+    #move-confirm-modal .btn-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      justify-content: center;
+    }
+    #move-confirm-modal button {
+      padding: 4px 10px;
+      font-size: 0.7rem;
     }
     .badge {
       display: inline-block;
@@ -168,6 +188,13 @@
     <div id="canvas-container">
       <canvas id="stage" width="480" height="480"></canvas>
       <div id="forecast-modal"></div>
+      <div id="move-confirm-modal">
+        <div style="font-weight: bold; color: var(--accent-gold);">Move Here?</div>
+        <div class="btn-actions">
+          <button id="btn-confirm-move" style="border-color: var(--player-blue);">Yes</button>
+          <button id="btn-cancel-move">No</button>
+        </div>
+      </div>
     </div>
 
     <div id="sidebar">
@@ -178,10 +205,9 @@
 
       <div class="panel">
         <div class="panel-header">Action Deck</div>
-        <div class="btn-grid">
-          <button id="btn-move" disabled>Move</button>
+        <div class="btn-grid" style="grid-template-columns: 1fr 1fr 1fr;">
           <button id="btn-strike" disabled>Strike</button>
-          <button id="btn-rest" disabled>Rest (-3 Fat)</button>
+          <button id="btn-rest" disabled>Rest (+3)</button>
           <button id="btn-face" disabled>Set Facing</button>
         </div>
         <div id="facing-widget" style="display: none;">
@@ -216,14 +242,13 @@
       WEST:  { dx: -1, dy: 0, glyph: "<", name: "WEST", angle: (3 * Math.PI) / 2 }
     };
 
-    const FacingMultiplier = { FRONT: 1.0, FLANK: 1.25, REAR: 1.75 };
-
     const bloomTiles = new Set(["1,3", "1,4", "2,3", "2,4", "2,5"]);
     const ruinTiles  = new Set(["4,4", "5,4"]);
 
     let turnCount = 1;
     let selectedUnit = null;
-    let actionMode = null; // 'MOVE', 'ATTACK'
+    let actionMode = null; // null or 'ATTACK'
+    let pendingMoveTile = null; // { x, y }
     let animationPulse = 0;
 
     let units = [
@@ -276,6 +301,21 @@
       return units.find(u => u.hp > 0 && u.x === x && u.y === y);
     }
 
+    function getValidMoveTiles(unit) {
+      if (!unit || unit.faction !== "PLAYER" || unit.moved || unit.done || unit.staggered) {
+        return [];
+      }
+      let tiles = [];
+      for (let d of Object.values(DIRS)) {
+        let tx = unit.x + d.dx;
+        let ty = unit.y + d.dy;
+        if (tx >= 0 && tx < GRID_SIZE && ty >= 0 && ty < GRID_SIZE && !getUnitAt(tx, ty) && !ruinTiles.has(`${tx},${ty}`)) {
+          tiles.push({ x: tx, y: ty });
+        }
+      }
+      return tiles;
+    }
+
     function updateAuras() {
       units.forEach(u => {
         u.inShieldWall = false;
@@ -316,7 +356,6 @@
 
       let res = calculateFacingVector(attacker, defender);
 
-      // Hit & Evasion check
       let effectiveEva = defender.staggered || res.angle === "REAR" || defender.fatigue >= defender.maxFat
         ? 0.0
         : Math.max(0, defender.eva - (res.angle === "FLANK" ? 0.25 : 0.0));
@@ -326,7 +365,6 @@
         return;
       }
 
-      // Shield Wall frontal ranged nullification
       if (defender.inShieldWall && res.angle === "FRONT" && attacker.range > 1) {
         log(`[SHIELD WALL] <b>${defender.name}</b> deflected projectile from <b>${attacker.name}</b>!`);
         return;
@@ -348,7 +386,6 @@
       defender.armor[res.slot] = Math.max(0, defender.armor[res.slot] - attacker.shred);
       defender.hp = Math.max(0, defender.hp - unmitigated);
 
-      // Poise damage & Stagger
       if (!defender.afflicted) {
         defender.poise = Math.max(0, defender.poise - attacker.poiseAtk);
         if (defender.poise <= 0 && !defender.staggered) {
@@ -428,7 +465,6 @@
         if (players.length === 0) return;
 
         if (enemy.afflicted) {
-          // Berserker AI: rushes nearest target
           players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
           let target = players[0];
           let sx = target.x > enemy.x ? 1 : (target.x < enemy.x ? -1 : 0);
@@ -449,7 +485,6 @@
             executeCombat(enemy, target);
           }
         } else {
-          // Tactical AI: attempts flanking & respects Spear Hedges
           players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
           let target = players[0];
 
@@ -500,7 +535,6 @@
       }
     }
 
-    // 16-bit Procedural Pixel Sprite Renderer
     function drawPixelUnit(u, px, py) {
       ctx.save();
       ctx.translate(px + TILE_SIZE/2, py + TILE_SIZE/2);
@@ -538,7 +572,6 @@
         ctx.fillRect(8, -18, 3, 26);
       }
 
-      // Stagger Effect
       if (u.staggered) {
         ctx.fillStyle = "#f85149";
         ctx.font = "bold 10px monospace";
@@ -636,17 +669,19 @@
         ctx.strokeRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
         ctx.lineWidth = 1;
 
-        if (actionMode === 'MOVE') {
-          ctx.fillStyle = "rgba(88, 166, 255, 0.25)";
-          for (let d of Object.values(DIRS)) {
-            let tx = selectedUnit.x + d.dx;
-            let ty = selectedUnit.y + d.dy;
-            if (tx >= 0 && tx < GRID_SIZE && ty >= 0 && ty < GRID_SIZE && !getUnitAt(tx, ty) && !ruinTiles.has(`${tx},${ty}`)) {
-              ctx.fillRect(tx * TILE_SIZE + 2, ty * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-            }
-          }
+        // Auto Movement Tile Highlights (if not in Attack mode)
+        if (actionMode !== 'ATTACK') {
+          let validMoves = getValidMoveTiles(selectedUnit);
+          let movePulse = 0.25 + 0.1 * Math.sin(animationPulse * 2);
+          ctx.fillStyle = `rgba(88, 166, 255, ${movePulse})`;
+          validMoves.forEach(t => {
+            ctx.fillRect(t.x * TILE_SIZE + 2, t.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+            ctx.strokeStyle = "rgba(88, 166, 255, 0.6)";
+            ctx.strokeRect(t.x * TILE_SIZE + 2, t.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+          });
         }
 
+        // Attack Target Highlights
         if (actionMode === 'ATTACK') {
           ctx.fillStyle = "rgba(248, 81, 73, 0.25)";
           units.filter(e => e.faction !== selectedUnit.faction && e.hp > 0).forEach(e => {
@@ -664,15 +699,20 @@
       requestAnimationFrame(render);
     }
 
+    function hideMoveModal() {
+      document.getElementById("move-confirm-modal").style.display = "none";
+      pendingMoveTile = null;
+    }
+
     function updateIntelPanel() {
       const box = document.getElementById("unit-intel");
       if (!selectedUnit || selectedUnit.hp <= 0) {
         box.innerHTML = "Click a unit on the field to inspect.";
-        document.getElementById("btn-move").disabled = true;
         document.getElementById("btn-strike").disabled = true;
         document.getElementById("btn-rest").disabled = true;
         document.getElementById("btn-face").disabled = true;
         document.getElementById("facing-widget").style.display = "none";
+        hideMoveModal();
         return;
       }
 
@@ -705,7 +745,6 @@
       `;
 
       let canControl = (u.faction === "PLAYER" && !u.done && !u.staggered);
-      document.getElementById("btn-move").disabled = (!canControl || u.moved);
       document.getElementById("btn-strike").disabled = (!canControl || u.acted);
       document.getElementById("btn-rest").disabled = (!canControl || u.acted);
       document.getElementById("btn-face").disabled = (!canControl);
@@ -716,11 +755,37 @@
         selectedUnit.facing = DIRS[dirName];
         selectedUnit.done = true;
         document.getElementById("facing-widget").style.display = "none";
+        hideMoveModal();
         log(`${selectedUnit.name} braced facing ${dirName}. Turn concluded.`);
         updateAuras();
         updateIntelPanel();
       }
     }
+
+    // Modal Confirmation Execution
+    document.getElementById("btn-confirm-move").onclick = () => {
+      if (selectedUnit && pendingMoveTile) {
+        let oldX = selectedUnit.x;
+        let oldY = selectedUnit.y;
+        let gx = pendingMoveTile.x;
+        let gy = pendingMoveTile.y;
+
+        if (checkZOC(selectedUnit, oldX, oldY)) {
+          selectedUnit.x = gx;
+          selectedUnit.y = gy;
+          selectedUnit.fatigue += bloomTiles.has(`${gx},${gy}`) ? 2.0 : 1.0;
+          selectedUnit.moved = true;
+          log(`${selectedUnit.name} shifted position to (${gx}, ${gy}).`);
+        }
+      }
+      hideMoveModal();
+      updateAuras();
+      updateIntelPanel();
+    };
+
+    document.getElementById("btn-cancel-move").onclick = () => {
+      hideMoveModal();
+    };
 
     canvas.addEventListener("mousemove", (e) => {
       const rect = canvas.getBoundingClientRect();
@@ -757,29 +822,12 @@
 
     canvas.addEventListener("click", (e) => {
       const rect = canvas.getBoundingClientRect();
-      const gx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
-      const gy = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const gx = Math.floor(clickX / TILE_SIZE);
+      const gy = Math.floor(clickY / TILE_SIZE);
 
-      if (actionMode === 'MOVE' && selectedUnit) {
-        let dist = Math.abs(selectedUnit.x - gx) + Math.abs(selectedUnit.y - gy);
-        if (dist === 1 && !getUnitAt(gx, gy) && !ruinTiles.has(`${gx},${gy}`)) {
-          let oldX = selectedUnit.x;
-          let oldY = selectedUnit.y;
-
-          if (checkZOC(selectedUnit, oldX, oldY)) {
-            selectedUnit.x = gx;
-            selectedUnit.y = gy;
-            selectedUnit.fatigue += bloomTiles.has(`${gx},${gy}`) ? 2.0 : 1.0;
-            selectedUnit.moved = true;
-            log(`${selectedUnit.name} shifted position to (${gx}, ${gy}).`);
-          }
-        }
-        actionMode = null;
-        updateAuras();
-        updateIntelPanel();
-        return;
-      }
-
+      // Handle Attack Target Selection
       if (actionMode === 'ATTACK' && selectedUnit) {
         let target = getUnitAt(gx, gy);
         if (target && target.faction !== selectedUnit.faction) {
@@ -794,39 +842,63 @@
         return;
       }
 
+      // Check if clicking a valid movement tile for the currently selected unit
+      if (selectedUnit && selectedUnit.faction === "PLAYER" && !selectedUnit.moved && !selectedUnit.done) {
+        let validMoves = getValidMoveTiles(selectedUnit);
+        let clickedMove = validMoves.find(t => t.x === gx && t.y === gy);
+
+        if (clickedMove) {
+          pendingMoveTile = clickedMove;
+          const confirmModal = document.getElementById("move-confirm-modal");
+          confirmModal.style.display = "block";
+
+          let modalLeft = (gx * TILE_SIZE) + TILE_SIZE + 6;
+          let modalTop = (gy * TILE_SIZE);
+          if (modalLeft + 120 > canvas.width) modalLeft = (gx * TILE_SIZE) - 120;
+          if (modalTop + 60 > canvas.height) modalTop = canvas.height - 70;
+
+          confirmModal.style.left = `${modalLeft}px`;
+          confirmModal.style.top = `${modalTop}px`;
+          return;
+        }
+      }
+
+      // Default: Unit selection
       let clicked = getUnitAt(gx, gy);
       if (clicked) {
         selectedUnit = clicked;
         actionMode = null;
+        hideMoveModal();
         document.getElementById("facing-widget").style.display = "none";
         updateIntelPanel();
+      } else {
+        hideMoveModal();
       }
     });
 
-    document.getElementById("btn-move").onclick = () => {
-      actionMode = 'MOVE';
-      log("Select adjacent tile to advance.");
-    };
-
     document.getElementById("btn-strike").onclick = () => {
       actionMode = 'ATTACK';
-      log("Select target within engagement range.");
+      hideMoveModal();
+      log("Select hostile within weapon range.");
     };
 
     document.getElementById("btn-rest").onclick = () => {
       if (selectedUnit && !selectedUnit.acted) {
         selectedUnit.fatigue = Math.max(0, selectedUnit.fatigue - 3.0);
         selectedUnit.acted = true;
+        hideMoveModal();
         log(`${selectedUnit.name} caught breath (-3 Fatigue).`);
         updateIntelPanel();
       }
     };
 
     document.getElementById("btn-face").onclick = () => {
+      hideMoveModal();
       document.getElementById("facing-widget").style.display = "block";
     };
 
     document.getElementById("btn-end-turn").onclick = () => {
+      hideMoveModal();
       log(`<b>--- ENEMY PHASE (Turn ${turnCount}) ---</b>`);
       runTacticalAI();
       applyBloomTurn();
@@ -849,10 +921,10 @@
       updateIntelPanel();
     };
 
-    // Kickoff
+    // Initial setup
     updateAuras();
     render();
-    log("Tactical engine online. Command Vanguard Knight [P1] to commence.");
+    log("Tactical engine online. Click any Mercenary to inspect movement paths.");
   </script>
 </body>
 </html>
