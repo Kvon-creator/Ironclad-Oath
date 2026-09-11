@@ -14,7 +14,7 @@ A turn-based tactical grid combat prototype inspired by classic 16-bit strategy 
 ---
 
 ### Running the Web Game (Recommended)
-
-1. Open your terminal in the root project directory:
+   
+1. **Start a local HTTP server using Python:**
    ```bash
-   cd /workspaces/Ironclad-Oath
+   python3 -m http.server 8000
