@@ -2,19 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Ironclad Oath - 16-bit Tactical Web Engine</title>
+  <title>Ironclad Oath - Tactical River Crossing</title>
   <style>
     :root {
       --bg: #0d1117;
       --panel-bg: #161b22;
       --panel-border: #30363d;
       --text-main: #c9d1d9;
-      --text-muted: #8b949e;
       --accent-gold: #e3b341;
       --player-blue: #58a6ff;
       --enemy-red: #f85149;
       --bloom-green: #56d364;
-      --ruin-gray: #484f58;
     }
     * { box-sizing: border-box; }
     body {
@@ -45,11 +43,11 @@
       border: 3px solid var(--panel-border);
       box-shadow: 0 8px 24px rgba(0,0,0,0.7);
       background: #000;
+      overflow: hidden;
     }
     canvas {
       display: block;
       image-rendering: pixelated;
-      image-rendering: crisp-edges;
       cursor: crosshair;
     }
     #sidebar {
@@ -91,7 +89,7 @@
     .bar-fill { height: 100%; transition: width 0.2s ease-out; }
     .btn-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 6px;
       margin-top: 8px;
     }
@@ -112,10 +110,7 @@
       border-color: var(--accent-gold);
       color: #fff;
     }
-    button:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
     .direction-pad {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -163,10 +158,32 @@
       margin-top: 6px;
       justify-content: center;
     }
-    #move-confirm-modal button {
-      padding: 4px 10px;
-      font-size: 0.7rem;
+    #move-confirm-modal button { padding: 4px 10px; font-size: 0.7rem; }
+    
+    /* Phase Cut-In Banner */
+    #phase-banner {
+      display: none;
+      position: absolute;
+      top: 40%;
+      left: -100%;
+      width: 100%;
+      height: 70px;
+      z-index: 30;
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      border-top: 3px solid #fff;
+      border-bottom: 3px solid #fff;
+      pointer-events: none;
     }
+    .phase-blue { background: linear-gradient(90deg, transparent, rgba(31, 111, 235, 0.9) 20%, rgba(31, 111, 235, 0.9) 80%, transparent); color: #fff; text-shadow: 0 2px 4px #000; }
+    .phase-red  { background: linear-gradient(90deg, transparent, rgba(218, 54, 51, 0.9) 20%, rgba(218, 54, 51, 0.9) 80%, transparent); color: #fff; text-shadow: 0 2px 4px #000; }
+
     .badge {
       display: inline-block;
       padding: 1px 4px;
@@ -182,11 +199,11 @@
 </head>
 <body>
 
-  <h1>Ironclad Oath: Tactical Core</h1>
+  <h1>Ironclad Oath: The Thornwood River</h1>
 
   <div id="game-layout">
     <div id="canvas-container">
-      <canvas id="stage" width="480" height="480"></canvas>
+      <canvas id="stage" width="480" height="528"></canvas>
       <div id="forecast-modal"></div>
       <div id="move-confirm-modal">
         <div style="font-weight: bold; color: var(--accent-gold);">Move Here?</div>
@@ -195,6 +212,7 @@
           <button id="btn-cancel-move">No</button>
         </div>
       </div>
+      <div id="phase-banner"></div>
     </div>
 
     <div id="sidebar">
@@ -205,7 +223,7 @@
 
       <div class="panel">
         <div class="panel-header">Action Deck</div>
-        <div class="btn-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+        <div class="btn-grid">
           <button id="btn-strike" disabled>Strike</button>
           <button id="btn-rest" disabled>Rest (+3)</button>
           <button id="btn-face" disabled>Set Facing</button>
@@ -230,62 +248,82 @@
 
   <script>
     const TILE_SIZE = 48;
-    const GRID_SIZE = 10;
+    const COLS = 10;
+    const ROWS = 11;
     const canvas = document.getElementById("stage");
     const ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
 
     const DIRS = {
-      NORTH: { dx: 0, dy: -1, glyph: "^", name: "NORTH", angle: 0 },
-      EAST:  { dx: 1, dy: 0,  glyph: ">", name: "EAST", angle: Math.PI / 2 },
-      SOUTH: { dx: 0, dy: 1,  glyph: "v", name: "SOUTH", angle: Math.PI },
-      WEST:  { dx: -1, dy: 0, glyph: "<", name: "WEST", angle: (3 * Math.PI) / 2 }
+      NORTH: { dx: 0, dy: -1, glyph: "^", name: "NORTH" },
+      EAST:  { dx: 1, dy: 0,  glyph: ">", name: "EAST" },
+      SOUTH: { dx: 0, dy: 1,  glyph: "v", name: "SOUTH" },
+      WEST:  { dx: -1, dy: 0, glyph: "<", name: "WEST" }
     };
 
-    const bloomTiles = new Set(["1,3", "1,4", "2,3", "2,4", "2,5"]);
-    const ruinTiles  = new Set(["4,4", "5,4"]);
+    // Environmental Layout
+    const bridgeTiles = new Set(["4,5", "5,5"]);
+    const roadTiles = new Set([
+      "4,0","5,0","4,1","5,1","4,2","5,2","4,3","5,3","4,4","5,4",
+      "4,5","5,5",
+      "4,6","5,6","4,7","5,7","4,8","5,8","4,9","5,9","4,10","5,10"
+    ]);
+    const forestTiles = new Set([
+      "0,0","1,0","8,0","9,0","0,1","8,1","9,1",
+      "1,3","8,3","9,3","2,4","7,4","8,4",
+      "1,6","2,6","8,6","0,7","7,7","8,7","9,7",
+      "0,9","1,9","8,9","9,9","0,10","1,10","8,10","9,10"
+    ]);
+    const bloomTiles = new Set(["0,4", "1,4", "0,5", "1,5", "0,6"]);
 
     let turnCount = 1;
     let selectedUnit = null;
-    let actionMode = null; // null or 'ATTACK'
-    let pendingMoveTile = null; // { x, y }
+    let actionMode = null; 
+    let pendingMoveTile = null; 
     let animationPulse = 0;
+    let isBannerPlaying = false;
 
     let units = [
-      // Mercenaries
-      { id: "P1", name: "Vanguard Knight", faction: "PLAYER", x: 4, y: 8, facing: DIRS.NORTH,
-        hp: 45, maxHp: 45, fatigue: 0, maxFat: 30, poise: 40, maxPoise: 40, eva: 0.10,
+      // Mercenaries (South of River)
+      { id: "P1", name: "Vanguard Knight", faction: "PLAYER", x: 4, y: 9, facing: DIRS.NORTH,
+        moveRange: 2, hp: 45, maxHp: 45, fatigue: 0, maxFat: 30, poise: 40, maxPoise: 40,
+        accuracy: 32, critChance: 0.05,
         atk: 14, range: 1, poiseAtk: 15, shred: 8, shield: true, spear: false,
         armor: { FRONT: 50, FLANK: 30, REAR: 15 },
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P2", name: "Hedge Halberdier", faction: "PLAYER", x: 5, y: 8, facing: DIRS.NORTH,
-        hp: 38, maxHp: 38, fatigue: 0, maxFat: 25, poise: 30, maxPoise: 30, eva: 0.15,
+      { id: "P2", name: "Hedge Halberdier", faction: "PLAYER", x: 5, y: 9, facing: DIRS.NORTH,
+        moveRange: 3, hp: 38, maxHp: 38, fatigue: 0, maxFat: 25, poise: 30, maxPoise: 30,
+        accuracy: 38, critChance: 0.12,
         atk: 16, range: 2, poiseAtk: 12, shred: 10, shield: false, spear: true,
         armor: { FRONT: 35, FLANK: 20, REAR: 10 },
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P3", name: "Outrider Scout", faction: "PLAYER", x: 6, y: 9, facing: DIRS.NORTH,
-        hp: 28, maxHp: 28, fatigue: 0, maxFat: 20, poise: 18, maxPoise: 18, eva: 0.30,
+      { id: "P3", name: "Outrider Scout", faction: "PLAYER", x: 4, y: 10, facing: DIRS.NORTH,
+        moveRange: 4, hp: 28, maxHp: 28, fatigue: 0, maxFat: 20, poise: 18, maxPoise: 18,
+        accuracy: 50, critChance: 0.25,
         atk: 11, range: 3, poiseAtk: 6, shred: 3, shield: false, spear: false,
         armor: { FRONT: 15, FLANK: 10, REAR: 5 },
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      // Enemies
+      // Hostile Forces (North of River)
       { id: "E1", name: "Footman A", faction: "ENEMY", x: 4, y: 2, facing: DIRS.SOUTH,
-        hp: 35, maxHp: 35, fatigue: 0, maxFat: 25, poise: 25, maxPoise: 25, eva: 0.15,
+        moveRange: 2, hp: 35, maxHp: 35, fatigue: 0, maxFat: 25, poise: 25, maxPoise: 25,
+        accuracy: 30, critChance: 0.08,
         atk: 12, range: 1, poiseAtk: 10, shred: 6, shield: true, spear: false,
         armor: { FRONT: 30, FLANK: 20, REAR: 10 },
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
       { id: "E2", name: "Footman B", faction: "ENEMY", x: 5, y: 2, facing: DIRS.SOUTH,
-        hp: 35, maxHp: 35, fatigue: 0, maxFat: 25, poise: 25, maxPoise: 25, eva: 0.15,
+        moveRange: 2, hp: 35, maxHp: 35, fatigue: 0, maxFat: 25, poise: 25, maxPoise: 25,
+        accuracy: 30, critChance: 0.08,
         atk: 12, range: 1, poiseAtk: 10, shred: 6, shield: true, spear: false,
         armor: { FRONT: 30, FLANK: 20, REAR: 10 },
         shield: true, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "ET", name: "Bloom Thrall", faction: "ENEMY", x: 1, y: 2, facing: DIRS.SOUTH,
-        hp: 55, maxHp: 55, fatigue: 0, maxFat: 40, poise: 60, maxPoise: 60, eva: 0.05,
+      { id: "ET", name: "Bloom Thrall", faction: "ENEMY", x: 2, y: 2, facing: DIRS.SOUTH,
+        moveRange: 3, hp: 55, maxHp: 55, fatigue: 0, maxFat: 40, poise: 60, maxPoise: 60,
+        accuracy: 24, critChance: 0.15,
         atk: 17, range: 1, poiseAtk: 22, shred: 14, shield: false, spear: false, afflicted: true,
         armor: { FRONT: 15, FLANK: 15, REAR: 15 },
         staggered: false, inShieldWall: false, inSpearHedge: false }
@@ -297,23 +335,59 @@
       b.scrollTop = b.scrollHeight;
     }
 
+    function isWaterTile(x, y) {
+      if (y !== 5) return false;
+      return !bridgeTiles.has(`${x},${y}`);
+    }
+
     function getUnitAt(x, y) {
       return units.find(u => u.hp > 0 && u.x === x && u.y === y);
     }
 
+    // Breadth-First-Search Multi-Tile Movement Range
     function getValidMoveTiles(unit) {
-      if (!unit || unit.faction !== "PLAYER" || unit.moved || unit.done || unit.staggered) {
-        return [];
-      }
-      let tiles = [];
-      for (let d of Object.values(DIRS)) {
-        let tx = unit.x + d.dx;
-        let ty = unit.y + d.dy;
-        if (tx >= 0 && tx < GRID_SIZE && ty >= 0 && ty < GRID_SIZE && !getUnitAt(tx, ty) && !ruinTiles.has(`${tx},${ty}`)) {
-          tiles.push({ x: tx, y: ty });
+      if (!unit || unit.faction !== "PLAYER" || unit.moved || unit.done || unit.staggered) return [];
+
+      let reachable = new Map();
+      reachable.set(`${unit.x},${unit.y}`, 0);
+      let queue = [{ x: unit.x, y: unit.y, dist: 0 }];
+
+      while (queue.length > 0) {
+        let curr = queue.shift();
+        if (curr.dist >= unit.moveRange) continue;
+
+        for (let d of Object.values(DIRS)) {
+          let nx = curr.x + d.dx;
+          let ny = curr.y + d.dy;
+
+          if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+          if (isWaterTile(nx, ny)) continue; // Impassable river
+
+          let occ = getUnitAt(nx, ny);
+          if (occ && occ.faction !== unit.faction) continue; // Blocked by foes
+
+          let cost = 1;
+          if (bloomTiles.has(`${nx},${ny}`) || forestTiles.has(`${nx},${ny}`)) cost = 1.5;
+          let newDist = curr.dist + cost;
+
+          if (newDist <= unit.moveRange) {
+            let key = `${nx},${ny}`;
+            if (!reachable.has(key) || reachable.get(key) > newDist) {
+              reachable.set(key, newDist);
+              queue.push({ x: nx, y: ny, dist: newDist });
+            }
+          }
         }
       }
-      return tiles;
+
+      let valid = [];
+      for (let [key] of reachable.entries()) {
+        let [tx, ty] = key.split(",").map(Number);
+        if (!getUnitAt(tx, ty) && !(tx === unit.x && ty === unit.y)) {
+          valid.push({ x: tx, y: ty });
+        }
+      }
+      return valid;
     }
 
     function updateAuras() {
@@ -325,12 +399,8 @@
         for (let d of Object.values(DIRS)) {
           let neighbor = getUnitAt(u.x + d.dx, u.y + d.dy);
           if (neighbor && neighbor.faction === u.faction && neighbor.hp > 0) {
-            if (u.shield && neighbor.shield && neighbor.facing === u.facing) {
-              u.inShieldWall = true;
-            }
-            if (u.spear && neighbor.spear && neighbor.facing === u.facing) {
-              u.inSpearHedge = true;
-            }
+            if (u.shield && neighbor.shield && neighbor.facing === u.facing) u.inShieldWall = true;
+            if (u.spear && neighbor.spear && neighbor.facing === u.facing) u.inSpearHedge = true;
           }
         }
       });
@@ -348,6 +418,17 @@
       return { angle: "FLANK", mult: 1.25, slot: "FLANK" };
     }
 
+    // Exponential Accuracy & Dodge Calculation
+    function calculateDodgeProbability(attacker, defender, angle) {
+      if (defender.staggered || angle === "REAR" || defender.fatigue >= defender.maxFat) {
+        return 0.0;
+      }
+      let accDiff = defender.accuracy - attacker.accuracy;
+      let logisticDodge = 1.0 / (1.0 + Math.exp(-accDiff / 12.0));
+      if (angle === "FLANK") logisticDodge *= 0.5; // Flank penalty
+      return Math.min(0.85, Math.max(0.02, logisticDodge));
+    }
+
     function executeCombat(attacker, defender, isOpportunity = false) {
       if (!isOpportunity) {
         let cost = (attacker.fatigue >= attacker.maxFat) ? 6 : 4;
@@ -355,22 +436,21 @@
       }
 
       let res = calculateFacingVector(attacker, defender);
+      let dodgeChance = calculateDodgeProbability(attacker, defender, res.angle);
 
-      let effectiveEva = defender.staggered || res.angle === "REAR" || defender.fatigue >= defender.maxFat
-        ? 0.0
-        : Math.max(0, defender.eva - (res.angle === "FLANK" ? 0.25 : 0.0));
-
-      if (Math.random() < effectiveEva) {
-        log(`[DODGE] <b>${defender.name}</b> evaded attack from <b>${attacker.name}</b>!`);
+      if (Math.random() < dodgeChance) {
+        log(`[DODGE] <b>${defender.name}</b> evaded <b>${attacker.name}</b> (${(dodgeChance*100).toFixed(1)}% dodge odds)!`);
         return;
       }
 
       if (defender.inShieldWall && res.angle === "FRONT" && attacker.range > 1) {
-        log(`[SHIELD WALL] <b>${defender.name}</b> deflected projectile from <b>${attacker.name}</b>!`);
+        log(`[SHIELD WALL] <b>${defender.name}</b> negated projectile from <b>${attacker.name}</b>!`);
         return;
       }
 
-      let rawDamage = attacker.atk * res.mult;
+      let isCrit = Math.random() < attacker.critChance;
+      let critMult = isCrit ? 2.0 : 1.0;
+      let rawDamage = attacker.atk * res.mult * critMult;
       let armVal = defender.armor[res.slot];
       let unmitigated = 0;
       let absorbed = 0;
@@ -390,12 +470,13 @@
         defender.poise = Math.max(0, defender.poise - attacker.poiseAtk);
         if (defender.poise <= 0 && !defender.staggered) {
           defender.staggered = true;
-          log(`<span style="color:var(--enemy-red)">** ${defender.name} is STAGGERED! **</span>`);
+          log(`<span style="color:var(--enemy-red)">** ${defender.name} STAGGERED! **</span>`);
         }
       }
 
       let tag = isOpportunity ? "[REACTION] " : "";
-      log(`${tag}<b>${attacker.name}</b> hits <b>${defender.name}</b> (${res.angle}) for ${unmitigated.toFixed(1)} DMG!`);
+      let critTag = isCrit ? "<span style='color:var(--accent-gold); font-weight:bold;'> [CRITICAL HIT!]</span>" : "";
+      log(`${tag}<b>${attacker.name}</b> strikes <b>${defender.name}</b> (${res.angle})${critTag} for ${unmitigated.toFixed(1)} DMG!`);
 
       if (defender.hp <= 0) {
         log(`💀 <b>${defender.name}</b> fell in battle!`);
@@ -411,9 +492,7 @@
 
     function checkZOC(mover, fromX, fromY) {
       for (let e of units.filter(u => u.faction !== mover.faction && u.hp > 0 && !u.staggered)) {
-        let fX = e.x + e.facing.dx;
-        let fY = e.y + e.facing.dy;
-        if (fromX === fX && fromY === fY) {
+        if (fromX === e.x + e.facing.dx && fromY === e.y + e.facing.dy) {
           log(`<span style="color:var(--accent-gold)">[!] ZoC Strike: ${e.name} executes opportunity strike!</span>`);
           executeCombat(e, mover, true);
           if (mover.hp <= 0) return false;
@@ -424,103 +503,77 @@
 
     function checkSpearHedge(mover, toX, toY) {
       for (let e of units.filter(u => u.faction !== mover.faction && u.hp > 0 && u.inSpearHedge && !u.staggered)) {
-        let fX = e.x + e.facing.dx;
-        let fY = e.y + e.facing.dy;
-        if (toX === fX && toY === fY) {
-          log(`<span style="color:var(--accent-gold)">[!] Spear Hedge: ${e.name} intercepts charging enemy!</span>`);
+        if (toX === e.x + e.facing.dx && toY === e.y + e.facing.dy) {
+          log(`<span style="color:var(--accent-gold)">[!] Spear Hedge: ${e.name} intercepts advance!</span>`);
           executeCombat(e, mover, true);
-          if (mover.staggered || mover.hp <= 0) {
-            log(`Advance halted by spear brace!`);
-            return false;
-          }
+          if (mover.staggered || mover.hp <= 0) return false;
         }
       }
       return true;
     }
 
-    function applyBloomTurn() {
-      units.filter(u => u.hp > 0).forEach(u => {
-        if (bloomTiles.has(`${u.x},${u.y}`)) {
-          u.fatigue = Math.min(u.maxFat, u.fatigue + 2.0);
-          for (let k in u.armor) u.armor[k] = Math.max(0, u.armor[k] * 0.95);
-          log(`<span style="color:var(--bloom-green)">[BLOOM ROT] ${u.name} takes +2 Fatigue and 5% armor corrosion!</span>`);
-        } else {
-          u.fatigue = Math.max(0, u.fatigue - 1.0);
-        }
-      });
+    function playPhaseBanner(title, isPlayer, callback) {
+      isBannerPlaying = true;
+      const banner = document.getElementById("phase-banner");
+      banner.textContent = title;
+      banner.className = isPlayer ? "phase-blue" : "phase-red";
+      banner.style.display = "flex";
+      banner.style.left = "-100%";
+      banner.style.transition = "none";
+
+      setTimeout(() => {
+        banner.style.transition = "left 0.4s cubic-bezier(0.1, 0.9, 0.2, 1.0)";
+        banner.style.left = "0%";
+      }, 50);
+
+      setTimeout(() => {
+        banner.style.transition = "left 0.3s ease-in";
+        banner.style.left = "100%";
+        setTimeout(() => {
+          banner.style.display = "none";
+          isBannerPlaying = false;
+          if (callback) callback();
+        }, 300);
+      }, 1000);
     }
 
     function runTacticalAI() {
       let activeEnemies = units.filter(u => u.faction === "ENEMY" && u.hp > 0);
-
       activeEnemies.forEach(enemy => {
         if (enemy.staggered) {
           enemy.staggered = false;
           enemy.poise = enemy.maxPoise * 0.5;
-          log(`${enemy.name} recovered from stagger.`);
           return;
         }
 
         let players = units.filter(p => p.faction === "PLAYER" && p.hp > 0);
         if (players.length === 0) return;
+        players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
+        let target = players[0];
 
-        if (enemy.afflicted) {
-          players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
-          let target = players[0];
-          let sx = target.x > enemy.x ? 1 : (target.x < enemy.x ? -1 : 0);
-          let sy = target.y > enemy.y ? 1 : (target.y < enemy.y ? -1 : 0);
+        // Step navigation respecting bridge crossing
+        let sx = target.x > enemy.x ? 1 : (target.x < enemy.x ? -1 : 0);
+        let sy = target.y > enemy.y ? 1 : (target.y < enemy.y ? -1 : 0);
 
-          let nx = enemy.x + sx;
-          let ny = enemy.y;
-          if (sx !== 0 && !getUnitAt(nx, ny) && !ruinTiles.has(`${nx},${ny}`) && checkSpearHedge(enemy, nx, ny)) {
-            enemy.x = nx;
-          } else {
-            ny = enemy.y + sy;
-            if (sy !== 0 && !getUnitAt(enemy.x, ny) && !ruinTiles.has(`${enemy.x},${ny}`) && checkSpearHedge(enemy, enemy.x, ny)) {
-              enemy.y = ny;
-            }
-          }
-          orientUnitTowards(enemy, target);
-          if (Math.abs(enemy.x - target.x) + Math.abs(enemy.y - target.y) <= enemy.range) {
-            executeCombat(enemy, target);
-          }
-        } else {
-          players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
-          let target = players[0];
+        // If across the river, direct toward bridge (x=4 or x=5, y=5)
+        if ((enemy.y < 5 && target.y > 5) || (enemy.y > 5 && target.y < 5)) {
+          let bridgeX = enemy.x <= 4 ? 4 : 5;
+          sx = bridgeX > enemy.x ? 1 : (bridgeX < enemy.x ? -1 : 0);
+          sy = 5 > enemy.y ? 1 : (5 < enemy.y ? -1 : 0);
+        }
 
-          let bestTile = null;
-          let bestScore = -999;
-          for (let d of Object.values(DIRS)) {
-            let tx = target.x + d.dx;
-            let ty = target.y + d.dy;
-            if (tx < 0 || tx >= GRID_SIZE || ty < 0 || ty >= GRID_SIZE) continue;
-            if (ruinTiles.has(`${tx},${ty}`) || (getUnitAt(tx, ty) && !(tx === enemy.x && ty === enemy.y))) continue;
+        let nx = enemy.x + sx;
+        let ny = enemy.y + sy;
 
-            let angleRes = calculateFacingVector({x: tx, y: ty}, target);
-            let score = 10 * angleRes.mult - (Math.abs(tx - enemy.x) + Math.abs(ty - enemy.y));
-            if (target.spear && tx === target.x + target.facing.dx && ty === target.y + target.facing.dy) score -= 20;
+        if (sx !== 0 && !getUnitAt(nx, enemy.y) && !isWaterTile(nx, enemy.y) && checkSpearHedge(enemy, nx, enemy.y)) {
+          enemy.x = nx;
+        } else if (sy !== 0 && !getUnitAt(enemy.x, ny) && !isWaterTile(enemy.x, ny) && checkSpearHedge(enemy, enemy.x, ny)) {
+          enemy.y = ny;
+        }
 
-            if (score > bestScore) {
-              bestScore = score;
-              bestTile = { x: tx, y: ty };
-            }
-          }
-
-          if (bestTile) {
-            let sx = bestTile.x > enemy.x ? 1 : (bestTile.x < enemy.x ? -1 : 0);
-            let sy = bestTile.y > enemy.y ? 1 : (bestTile.y < enemy.y ? -1 : 0);
-            let nx = enemy.x + sx;
-            if (sx !== 0 && !getUnitAt(nx, enemy.y) && !ruinTiles.has(`${nx},${enemy.y}`) && checkSpearHedge(enemy, nx, enemy.y)) {
-              enemy.x = nx;
-            } else if (sy !== 0 && !getUnitAt(enemy.x, enemy.y + sy) && !ruinTiles.has(`${enemy.x},${enemy.y + sy}`) && checkSpearHedge(enemy, enemy.x, enemy.y + sy)) {
-              enemy.y += sy;
-            }
-          }
-
-          orientUnitTowards(enemy, target);
-          if (Math.abs(enemy.x - target.x) + Math.abs(enemy.y - target.y) <= enemy.range && !enemy.staggered) {
-            executeCombat(enemy, target);
-          }
+        orientUnitTowards(enemy, target);
+        if (Math.abs(enemy.x - target.x) + Math.abs(enemy.y - target.y) <= enemy.range && !enemy.staggered) {
+          executeCombat(enemy, target);
         }
       });
     }
@@ -535,34 +588,26 @@
       }
     }
 
+    // Canvas Map & Unit Painting
     function drawPixelUnit(u, px, py) {
       ctx.save();
       ctx.translate(px + TILE_SIZE/2, py + TILE_SIZE/2);
 
-      // Base shadow
       ctx.fillStyle = "rgba(0,0,0,0.4)";
       ctx.beginPath();
       ctx.ellipse(0, TILE_SIZE/2 - 6, 12, 6, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Body Palette
-      let armorColor = u.faction === "PLAYER" ? "#3b5998" : (u.afflicted ? "#2d5a27" : "#8b263e");
-      let metalColor = u.faction === "PLAYER" ? "#8fa8d6" : (u.afflicted ? "#598a42" : "#c44d56");
-      let skinColor = "#d2a679";
+      let armorColor = u.faction === "PLAYER" ? "#2b4b8a" : (u.afflicted ? "#2d5a27" : "#8b263e");
+      let metalColor = u.faction === "PLAYER" ? "#6d8bc6" : (u.afflicted ? "#598a42" : "#c44d56");
 
-      // Torso / Plate
       ctx.fillStyle = armorColor;
       ctx.fillRect(-8, -8, 16, 16);
       ctx.fillStyle = metalColor;
       ctx.fillRect(-6, -6, 12, 12);
-
-      // Helmet / Head
-      ctx.fillStyle = metalColor;
-      ctx.fillRect(-5, -14, 10, 8);
-      ctx.fillStyle = skinColor;
+      ctx.fillStyle = "#e0ac69";
       ctx.fillRect(-3, -10, 6, 4);
 
-      // Weapon / Shield Attachments
       if (u.shield) {
         ctx.fillStyle = "#e3b341";
         ctx.fillRect(-12, -6, 4, 12);
@@ -571,137 +616,111 @@
         ctx.fillStyle = "#c0c0c0";
         ctx.fillRect(8, -18, 3, 26);
       }
-
       if (u.staggered) {
         ctx.fillStyle = "#f85149";
         ctx.font = "bold 10px monospace";
         ctx.fillText("STUN", -12, -18);
       }
 
-      // Directional Indicator Chevron
+      // Chevron
       ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
-      let offset = 16;
+      let off = 16;
       ctx.beginPath();
-      if (u.facing === DIRS.NORTH) { ctx.moveTo(0, -offset); ctx.lineTo(-4, -offset+5); ctx.lineTo(4, -offset+5); }
-      if (u.facing === DIRS.SOUTH) { ctx.moveTo(0, offset); ctx.lineTo(-4, offset-5); ctx.lineTo(4, offset-5); }
-      if (u.facing === DIRS.EAST)  { ctx.moveTo(offset, 0); ctx.lineTo(offset-5, -4); ctx.lineTo(offset-5, 4); }
-      if (u.facing === DIRS.WEST)  { ctx.moveTo(-offset, 0); ctx.lineTo(-offset+5, -4); ctx.lineTo(-offset+5, 4); }
+      if (u.facing === DIRS.NORTH) { ctx.moveTo(0, -off); ctx.lineTo(-4, -off+5); ctx.lineTo(4, -off+5); }
+      if (u.facing === DIRS.SOUTH) { ctx.moveTo(0, off); ctx.lineTo(-4, off-5); ctx.lineTo(4, off-5); }
+      if (u.facing === DIRS.EAST)  { ctx.moveTo(off, 0); ctx.lineTo(off-5, -4); ctx.lineTo(off-5, 4); }
+      if (u.facing === DIRS.WEST)  { ctx.moveTo(-off, 0); ctx.lineTo(-off+5, -4); ctx.lineTo(-off+5, 4); }
       ctx.fill();
-
       ctx.restore();
 
-      // Mini Health and Poise Bars
+      // Mini Health Bars
       let barW = TILE_SIZE - 12;
-      let barX = px + 6;
-      let barY = py + TILE_SIZE - 8;
-
       ctx.fillStyle = "#21262d";
-      ctx.fillRect(barX, barY, barW, 3);
+      ctx.fillRect(px + 6, py + TILE_SIZE - 8, barW, 3);
       ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
-      ctx.fillRect(barX, barY, barW * Math.max(0, u.hp / u.maxHp), 3);
-
-      ctx.fillStyle = "#e3b341";
-      ctx.fillRect(barX, barY + 3, barW * Math.max(0, u.poise / u.maxPoise), 2);
+      ctx.fillRect(px + 6, py + TILE_SIZE - 8, barW * Math.max(0, u.hp / u.maxHp), 3);
     }
 
     function render() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       animationPulse = (animationPulse + 0.05) % (Math.PI * 2);
 
-      // Render Map Cells
-      for (let x = 0; x < GRID_SIZE; x++) {
-        for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < COLS; x++) {
+        for (let y = 0; y < ROWS; y++) {
           let px = x * TILE_SIZE;
           let py = y * TILE_SIZE;
           let key = `${x},${y}`;
 
-          // Ground
-          ctx.fillStyle = (x + y) % 2 === 0 ? "#1b212c" : "#161b24";
+          // Ground Plating
+          if (roadTiles.has(key)) {
+            ctx.fillStyle = "#a89f81"; // Dirt / stone path
+          } else {
+            ctx.fillStyle = (x + y) % 2 === 0 ? "#5a7a38" : "#4e6d2e"; // Grassland
+          }
           ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-          // Bloom Hazard Tiles
+          // River & Bridge
+          if (y === 5) {
+            if (bridgeTiles.has(key)) {
+              ctx.fillStyle = "#8a5836"; // Wooden Bridge Planks
+              ctx.fillRect(px, py + 4, TILE_SIZE, TILE_SIZE - 8);
+              ctx.strokeStyle = "#4a2a12";
+              ctx.strokeRect(px, py + 4, TILE_SIZE, TILE_SIZE - 8);
+            } else {
+              ctx.fillStyle = "#245070"; // Water River
+              ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+              ctx.fillStyle = "rgba(255,255,255,0.2)";
+              ctx.fillRect(px, py + 12 + Math.sin(animationPulse + x)*3, TILE_SIZE, 4);
+            }
+          }
+
+          // Foliage & Thickets
+          if (forestTiles.has(key) && y !== 5) {
+            ctx.fillStyle = "#284a1e";
+            ctx.beginPath();
+            ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, 14, 0, Math.PI*2);
+            ctx.fill();
+          }
+
+          // Bloom Corruption
           if (bloomTiles.has(key)) {
-            let pulseAlpha = 0.2 + 0.1 * Math.sin(animationPulse);
+            let pulseAlpha = 0.3 + 0.15 * Math.sin(animationPulse);
             ctx.fillStyle = `rgba(86, 211, 100, ${pulseAlpha})`;
             ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-            ctx.fillStyle = "#56d364";
-            ctx.fillRect(px + 6, py + 6, 4, 4);
-            ctx.fillRect(px + TILE_SIZE - 10, py + TILE_SIZE - 10, 5, 5);
           }
 
-          // Stone Ruins
-          if (ruinTiles.has(key)) {
-            ctx.fillStyle = "#30363d";
-            ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-            ctx.strokeStyle = "#484f58";
-            ctx.strokeRect(px + 4, py + 4, TILE_SIZE - 8, TILE_SIZE - 8);
-          }
-
-          // Grid Lines
-          ctx.strokeStyle = "rgba(48, 54, 61, 0.4)";
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.15)";
           ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
         }
       }
 
-      // Draw Formation Links
-      units.filter(u => u.hp > 0 && (u.inShieldWall || u.inSpearHedge)).forEach(u => {
-        for (let d of Object.values(DIRS)) {
-          let n = getUnitAt(u.x + d.dx, u.y + d.dy);
-          if (n && n.faction === u.faction && n.facing === u.facing && n.hp > 0) {
-            ctx.strokeStyle = u.inShieldWall ? "rgba(88, 166, 255, 0.6)" : "rgba(227, 179, 65, 0.6)";
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(u.x * TILE_SIZE + TILE_SIZE/2, u.y * TILE_SIZE + TILE_SIZE/2);
-            ctx.lineTo(n.x * TILE_SIZE + TILE_SIZE/2, n.y * TILE_SIZE + TILE_SIZE/2);
-            ctx.stroke();
-            ctx.lineWidth = 1;
-          }
-        }
-      });
-
-      // Highlight Selection and Action Ranges
-      if (selectedUnit && selectedUnit.hp > 0) {
-        let px = selectedUnit.x * TILE_SIZE;
-        let py = selectedUnit.y * TILE_SIZE;
-
-        ctx.strokeStyle = "#e3b341";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
-        ctx.lineWidth = 1;
-
-        // Auto Movement Tile Highlights (if not in Attack mode)
-        if (actionMode !== 'ATTACK') {
-          let validMoves = getValidMoveTiles(selectedUnit);
-          let movePulse = 0.25 + 0.1 * Math.sin(animationPulse * 2);
-          ctx.fillStyle = `rgba(88, 166, 255, ${movePulse})`;
-          validMoves.forEach(t => {
-            ctx.fillRect(t.x * TILE_SIZE + 2, t.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-            ctx.strokeStyle = "rgba(88, 166, 255, 0.6)";
-            ctx.strokeRect(t.x * TILE_SIZE + 2, t.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-          });
-        }
-
-        // Attack Target Highlights
-        if (actionMode === 'ATTACK') {
-          ctx.fillStyle = "rgba(248, 81, 73, 0.25)";
-          units.filter(e => e.faction !== selectedUnit.faction && e.hp > 0).forEach(e => {
-            let dist = Math.abs(selectedUnit.x - e.x) + Math.abs(selectedUnit.y - e.y);
-            if (dist <= selectedUnit.range) {
-              ctx.fillRect(e.x * TILE_SIZE + 2, e.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
-            }
-          });
-        }
+      // Unit Movement Overlays
+      if (selectedUnit && selectedUnit.hp > 0 && actionMode !== 'ATTACK') {
+        let validMoves = getValidMoveTiles(selectedUnit);
+        let movePulse = 0.25 + 0.1 * Math.sin(animationPulse * 2);
+        ctx.fillStyle = `rgba(88, 166, 255, ${movePulse})`;
+        validMoves.forEach(t => {
+          ctx.fillRect(t.x * TILE_SIZE + 2, t.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+          ctx.strokeStyle = "rgba(88, 166, 255, 0.7)";
+          ctx.strokeRect(t.x * TILE_SIZE + 2, t.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+        });
       }
 
-      // Draw Units
+      // Target Highlights
+      if (selectedUnit && actionMode === 'ATTACK') {
+        ctx.fillStyle = "rgba(248, 81, 73, 0.25)";
+        units.filter(e => e.faction !== selectedUnit.faction && e.hp > 0).forEach(e => {
+          let dist = Math.abs(selectedUnit.x - e.x) + Math.abs(selectedUnit.y - e.y);
+          if (dist <= selectedUnit.range) {
+            ctx.fillRect(e.x * TILE_SIZE + 2, e.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+          }
+        });
+      }
+
+      // Render Units
       units.filter(u => u.hp > 0).forEach(u => drawPixelUnit(u, u.x * TILE_SIZE, u.y * TILE_SIZE));
 
       requestAnimationFrame(render);
-    }
-
-    function hideMoveModal() {
-      document.getElementById("move-confirm-modal").style.display = "none";
-      pendingMoveTile = null;
     }
 
     function updateIntelPanel() {
@@ -721,33 +740,32 @@
       if (u.inShieldWall) badges += `<span class="badge badge-formation">SHIELD WALL</span>`;
       if (u.inSpearHedge) badges += `<span class="badge badge-formation">SPEAR HEDGE</span>`;
       if (u.staggered) badges += `<span class="badge badge-stagger">STAGGERED</span>`;
-      if (bloomTiles.has(`${u.x},${u.y}`)) badges += `<span class="badge badge-bloom">IN BLOOM</span>`;
 
       box.innerHTML = `
-        <div style="font-weight:bold; font-size:0.9rem; margin-bottom:4px; color:${u.faction==='PLAYER'?'var(--player-blue)':'var(--enemy-red)'}">
+        <div style="font-weight:bold; font-size:0.9rem; color:${u.faction==='PLAYER'?'var(--player-blue)':'var(--enemy-red)'}">
           ${u.name} [${u.id}]
         </div>
-        <div style="margin-bottom:6px;">${badges}</div>
-
+        <div style="margin:4px 0;">${badges}</div>
         <div class="stat-row"><span>Health</span><span>${u.hp.toFixed(1)} / ${u.maxHp}</span></div>
         <div class="bar-bg"><div class="bar-fill" style="width:${(u.hp/u.maxHp)*100}%; background:var(--enemy-red);"></div></div>
-
-        <div class="stat-row"><span>Fatigue (Stamina)</span><span>${u.fatigue.toFixed(1)} / ${u.maxFat}</span></div>
+        <div class="stat-row"><span>Fatigue</span><span>${u.fatigue.toFixed(1)} / ${u.maxFat}</span></div>
         <div class="bar-bg"><div class="bar-fill" style="width:${(u.fatigue/u.maxFat)*100}%; background:var(--player-blue);"></div></div>
-
-        <div class="stat-row"><span>Poise Pool</span><span>${u.poise.toFixed(1)} / ${u.maxPoise}</span></div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${(u.poise/u.maxPoise)*100}%; background:var(--accent-gold);"></div></div>
-
         <div style="margin-top:6px; font-size:0.75rem;">
-          Facing: <b>${u.facing.name}</b><br>
-          Armor Quadrants: Front: <b>${u.armor.FRONT.toFixed(0)}</b> | Flank: <b>${u.armor.FLANK.toFixed(0)}</b> | Rear: <b>${u.armor.REAR.toFixed(0)}</b>
+          Move: <b>${u.moveRange} tiles</b> | Accuracy: <b>${u.accuracy}</b><br>
+          Crit: <b>${(u.critChance*100).toFixed(0)}% (2.0x DMG)</b> | Facing: <b>${u.facing.name}</b><br>
+          Armor: F:<b>${u.armor.FRONT}</b> S:<b>${u.armor.FLANK}</b> R:<b>${u.armor.REAR}</b>
         </div>
       `;
 
-      let canControl = (u.faction === "PLAYER" && !u.done && !u.staggered);
-      document.getElementById("btn-strike").disabled = (!canControl || u.acted);
-      document.getElementById("btn-rest").disabled = (!canControl || u.acted);
-      document.getElementById("btn-face").disabled = (!canControl);
+      let canAct = (u.faction === "PLAYER" && !u.done && !u.staggered && !isBannerPlaying);
+      document.getElementById("btn-strike").disabled = (!canAct || u.acted);
+      document.getElementById("btn-rest").disabled = (!canAct || u.acted);
+      document.getElementById("btn-face").disabled = (!canAct);
+    }
+
+    function hideMoveModal() {
+      document.getElementById("move-confirm-modal").style.display = "none";
+      pendingMoveTile = null;
     }
 
     function commitFacing(dirName) {
@@ -756,26 +774,22 @@
         selectedUnit.done = true;
         document.getElementById("facing-widget").style.display = "none";
         hideMoveModal();
-        log(`${selectedUnit.name} braced facing ${dirName}. Turn concluded.`);
+        log(`${selectedUnit.name} locked stance facing ${dirName}.`);
         updateAuras();
         updateIntelPanel();
       }
     }
 
-    // Modal Confirmation Execution
     document.getElementById("btn-confirm-move").onclick = () => {
       if (selectedUnit && pendingMoveTile) {
         let oldX = selectedUnit.x;
         let oldY = selectedUnit.y;
-        let gx = pendingMoveTile.x;
-        let gy = pendingMoveTile.y;
-
         if (checkZOC(selectedUnit, oldX, oldY)) {
-          selectedUnit.x = gx;
-          selectedUnit.y = gy;
-          selectedUnit.fatigue += bloomTiles.has(`${gx},${gy}`) ? 2.0 : 1.0;
+          selectedUnit.x = pendingMoveTile.x;
+          selectedUnit.y = pendingMoveTile.y;
+          selectedUnit.fatigue += bloomTiles.has(`${selectedUnit.x},${selectedUnit.y}`) ? 2.0 : 1.0;
           selectedUnit.moved = true;
-          log(`${selectedUnit.name} shifted position to (${gx}, ${gy}).`);
+          log(`${selectedUnit.name} moved across coordinates to (${selectedUnit.x}, ${selectedUnit.y}).`);
         }
       }
       hideMoveModal();
@@ -783,9 +797,7 @@
       updateIntelPanel();
     };
 
-    document.getElementById("btn-cancel-move").onclick = () => {
-      hideMoveModal();
-    };
+    document.getElementById("btn-cancel-move").onclick = hideMoveModal;
 
     canvas.addEventListener("mousemove", (e) => {
       const rect = canvas.getBoundingClientRect();
@@ -799,19 +811,18 @@
           let dist = Math.abs(selectedUnit.x - target.x) + Math.abs(selectedUnit.y - target.y);
           if (dist <= selectedUnit.range) {
             let res = calculateFacingVector(selectedUnit, target);
-            let estRaw = selectedUnit.atk * res.mult;
-            let estArm = target.armor[res.slot];
-            let estDmg = (res.angle === "REAR") ? (estRaw * 0.75) : Math.max(1, estRaw - (estArm * 0.65));
+            let estDmg = Math.max(1, (selectedUnit.atk * res.mult) - (target.armor[res.slot] * 0.65));
+            let dodgeOdds = calculateDodgeProbability(selectedUnit, target, res.angle);
 
             modal.style.display = "block";
             modal.style.left = `${e.clientX - rect.left + 15}px`;
             modal.style.top = `${e.clientY - rect.top + 15}px`;
             modal.innerHTML = `
-              <b>ENGAGEMENT FORECAST</b><br>
+              <b>FORECAST: ${selectedUnit.name}</b><br>
               Vector: <b>${res.angle}</b> (${res.mult}x)<br>
-              Target Plate: <b>${res.slot}</b> (${estArm.toFixed(0)})<br>
-              Estimated DMG: <span style="color:var(--enemy-red)">${estDmg.toFixed(1)}</span><br>
-              Poise Shock: ${selectedUnit.poiseAtk}
+              Dodge Odds: <b>${(dodgeOdds*100).toFixed(1)}%</b><br>
+              Crit Chance: <b>${(selectedUnit.critChance*100).toFixed(0)}% (2x)</b><br>
+              Est. Hit Damage: <span style="color:var(--enemy-red)">${estDmg.toFixed(1)}</span>
             `;
             return;
           }
@@ -821,13 +832,11 @@
     });
 
     canvas.addEventListener("click", (e) => {
+      if (isBannerPlaying) return;
       const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
-      const gx = Math.floor(clickX / TILE_SIZE);
-      const gy = Math.floor(clickY / TILE_SIZE);
+      const gx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+      const gy = Math.floor((e.clientY - rect.top) / TILE_SIZE);
 
-      // Handle Attack Target Selection
       if (actionMode === 'ATTACK' && selectedUnit) {
         let target = getUnitAt(gx, gy);
         if (target && target.faction !== selectedUnit.faction) {
@@ -842,28 +851,24 @@
         return;
       }
 
-      // Check if clicking a valid movement tile for the currently selected unit
+      // Check valid movement click
       if (selectedUnit && selectedUnit.faction === "PLAYER" && !selectedUnit.moved && !selectedUnit.done) {
         let validMoves = getValidMoveTiles(selectedUnit);
         let clickedMove = validMoves.find(t => t.x === gx && t.y === gy);
-
         if (clickedMove) {
           pendingMoveTile = clickedMove;
           const confirmModal = document.getElementById("move-confirm-modal");
           confirmModal.style.display = "block";
-
           let modalLeft = (gx * TILE_SIZE) + TILE_SIZE + 6;
           let modalTop = (gy * TILE_SIZE);
           if (modalLeft + 120 > canvas.width) modalLeft = (gx * TILE_SIZE) - 120;
           if (modalTop + 60 > canvas.height) modalTop = canvas.height - 70;
-
           confirmModal.style.left = `${modalLeft}px`;
           confirmModal.style.top = `${modalTop}px`;
           return;
         }
       }
 
-      // Default: Unit selection
       let clicked = getUnitAt(gx, gy);
       if (clicked) {
         selectedUnit = clicked;
@@ -879,7 +884,7 @@
     document.getElementById("btn-strike").onclick = () => {
       actionMode = 'ATTACK';
       hideMoveModal();
-      log("Select hostile within weapon range.");
+      log("Select target within weapon range.");
     };
 
     document.getElementById("btn-rest").onclick = () => {
@@ -899,32 +904,43 @@
 
     document.getElementById("btn-end-turn").onclick = () => {
       hideMoveModal();
-      log(`<b>--- ENEMY PHASE (Turn ${turnCount}) ---</b>`);
-      runTacticalAI();
-      applyBloomTurn();
+      playPhaseBanner("ENEMY PHASE", false, () => {
+        runTacticalAI();
 
-      // Refresh Player Units
-      units.filter(u => u.faction === "PLAYER" && u.hp > 0).forEach(u => {
-        if (u.staggered) {
-          u.staggered = false;
-          u.poise = u.maxPoise * 0.5;
-          log(`${u.name} shook off stagger.`);
-        }
-        u.moved = false;
-        u.acted = false;
-        u.done = false;
+        // Environmental Pulse
+        units.filter(u => u.hp > 0).forEach(u => {
+          if (bloomTiles.has(`${u.x},${u.y}`)) {
+            u.fatigue = Math.min(u.maxFat, u.fatigue + 2.0);
+            for (let k in u.armor) u.armor[k] = Math.max(0, u.armor[k] * 0.95);
+            log(`<span style="color:var(--bloom-green)">[BLOOM] ${u.name} suffered spore decay!</span>`);
+          } else {
+            u.fatigue = Math.max(0, u.fatigue - 1.0);
+          }
+        });
+
+        turnCount++;
+        playPhaseBanner("PLAYER PHASE", true, () => {
+          units.filter(u => u.faction === "PLAYER" && u.hp > 0).forEach(u => {
+            u.moved = false;
+            u.acted = false;
+            u.done = false;
+            if (u.staggered) {
+              u.staggered = false;
+              u.poise = u.maxPoise * 0.5;
+            }
+          });
+          updateAuras();
+          updateIntelPanel();
+        });
       });
-
-      turnCount++;
-      log(`<b>--- PLAYER PHASE (Turn ${turnCount}) ---</b>`);
-      updateAuras();
-      updateIntelPanel();
     };
 
-    // Initial setup
+    // Initial Launch
     updateAuras();
     render();
-    log("Tactical engine online. Click any Mercenary to inspect movement paths.");
+    playPhaseBanner("PLAYER PHASE", true, () => {
+      log("Battle of Thornwood River initiated. Hold the bridge crossing!");
+    });
   </script>
 </body>
 </html>
