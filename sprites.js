@@ -77,19 +77,19 @@ const SPRITE_MAPS = {
     "....MMMM....",
     "...MMMMMM...",
     "...MSDSDM...",
-    "...MSSSSM...",
-    "W..FFAAAAFF.",
-    "WWFFAAAAAFF.",
-    "WWFAAAAAAM.S",
-    ".WFAAAAAAM.S",
-    "..FAAAAAM..S",
-    "..LL..LL...S",
-    "..LL..LL...S",
-    "..LL..LL...S",
-    "..LL..LL...S",
-    "..MM..MM....",
-    "..MM..MM....",
-    "..MM..MM....",
+    "W..MSSSSM..W",
+    "WW.FFAAAAFFWW",
+    "WWWFFAAAAAFWW",
+    "WWWFAAAAAAMWW",
+    ".WWFAAAAAAMWS",
+    "..WFAAAAAM..S",
+    "..WLL..LL...S",
+    "...LL..LL...S",
+    "...LL..LL...S",
+    "...LL..LL...S",
+    "...MM..MM....",
+    "...MM..MM....",
+    "...MM..MM....",
     "............",
     "..xxxxxxxxx."
   ],
@@ -203,10 +203,45 @@ function drawDetailedUnitSprite(ctx, u, screenX, screenY, tileSize, animationPul
   const pFabric = isFlashing ? "#ff3333" : (isPlayer ? PALETTES.player_fabric[1] : PALETTES.enemy_fabric[1]);
   const pArmor  = isFlashing ? "#ffffff" : (isPlayer ? PALETTES.player_fabric[2] : PALETTES.enemy_fabric[2]);
 
-  const pSize = 2; // 2x2 canvas pixels per sprite pixel (24x36 visual bounds)
+  const pSize = 2;
   const bob = u.isFlying ? Math.sin(animationPulse * 2) * 3 : 0;
   const startX = Math.round(screenX + (tileSize - (12 * pSize)) / 2 + u.offsetX);
   const startY = Math.round(screenY + (tileSize - (18 * pSize)) / 2 + u.offsetY + bob);
+
+  // Large Wings for Flying Units
+  if (u.isFlying) {
+    ctx.save();
+    ctx.fillStyle = isFlashing ? "#ff6666" : "#edf2f7";
+    ctx.strokeStyle = isFlashing ? "#ffffff" : "#a0aec0";
+    ctx.lineWidth = 1.2;
+
+    const wingCenterX = screenX + tileSize / 2 + u.offsetX;
+    const wingCenterY = screenY + tileSize / 2 - 4 + u.offsetY + bob;
+
+    // Left Wing
+    ctx.beginPath();
+    ctx.ellipse(wingCenterX - 18, wingCenterY - 6, 14, 6, -0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.ellipse(wingCenterX - 13, wingCenterY, 10, 4, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Right Wing
+    ctx.beginPath();
+    ctx.ellipse(wingCenterX + 18, wingCenterY - 6, 14, 6, 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.ellipse(wingCenterX + 13, wingCenterY, 10, 4, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
+  }
 
   for (let r = 0; r < 18; r++) {
     for (let c = 0; c < 12; c++) {
@@ -237,7 +272,6 @@ function drawDetailedUnitSprite(ctx, u, screenX, screenY, tileSize, animationPul
     }
   }
 
-  // Stun status text indicator
   if (u.staggered) {
     ctx.fillStyle = "#f85149";
     ctx.font = "bold 9px monospace";
@@ -253,10 +287,10 @@ function drawDetailedUnitSprite(ctx, u, screenX, screenY, tileSize, animationPul
   if (u.facing === DIRS.NORTH) { ctx.moveTo(cx, cy - off); ctx.lineTo(cx - 3, cy - off + 4); ctx.lineTo(cx + 3, cy - off + 4); }
   if (u.facing === DIRS.SOUTH) { ctx.moveTo(cx, cy + off); ctx.lineTo(cx - 3, cy + off - 4); ctx.lineTo(cx + 3, cy + off - 4); }
   if (u.facing === DIRS.EAST)  { ctx.moveTo(cx + off, cy); ctx.lineTo(cx + off - 4, cy - 3); ctx.lineTo(cx + off - 4, cy + 3); }
-  if (u.facing === DIRS.WEST)  { ctx.moveTo(-cx - off, cy); ctx.lineTo(cx - off + 4, cy - 3); ctx.lineTo(cx - off + 4, cy + 3); }
+  if (u.facing === DIRS.WEST)  { ctx.moveTo(cx - off, cy); ctx.lineTo(cx - off + 4, cy - 3); ctx.lineTo(cx - off + 4, cy + 3); }
   ctx.fill();
 
-  // Overhead mini HP bar
+  // Mini Health Bar
   let barW = tileSize - 10;
   ctx.fillStyle = "#21262d";
   ctx.fillRect(screenX + 5 + u.offsetX, screenY + tileSize - 6 + u.offsetY, barW, 2.5);
