@@ -12,8 +12,6 @@
       --accent-gold: #e3b341;
       --player-blue: #58a6ff;
       --enemy-red: #f85149;
-      --threat-orange: rgba(248, 81, 73, 0.35);
-      --move-blue: rgba(88, 166, 255, 0.4);
       --bloom-green: #56d364;
     }
     * { box-sizing: border-box; }
@@ -167,8 +165,8 @@
       background: #1b212c;
       border: 1px solid var(--accent-gold);
       border-radius: 3px;
-      padding: 6px;
-      font-size: 0.7rem;
+      padding: 8px;
+      font-size: 0.72rem;
       margin-top: 6px;
     }
 
@@ -245,9 +243,9 @@
 
         <div id="skill-dialog">
           <div id="skill-title" style="font-weight:bold; color:var(--accent-gold);"></div>
-          <div id="skill-desc" style="margin:3px 0;"></div>
-          <div id="skill-status" style="font-size:0.65rem;"></div>
-          <button id="btn-use-skill" style="margin-top:4px; width:100%; display:none;">Activate Skill</button>
+          <div id="skill-desc" style="margin:3px 0; line-height:1.2;"></div>
+          <div id="skill-status" style="font-size:0.68rem; margin: 4px 0;"></div>
+          <button id="btn-use-skill" style="margin-top:4px; width:100%; border-color:var(--accent-gold); display:none;">Activate Skill</button>
         </div>
 
         <div id="facing-widget" style="display: none;">
@@ -302,36 +300,37 @@
 
     let turnCount = 1;
     let selectedUnit = null;
-    let actionMode = null; // 'ATTACK' or 'SKILL'
+    let actionMode = null; // 'ATTACK' or specific skill name
     let pendingMoveTile = null; 
     let animationPulse = 0;
     let isBannerPlaying = false;
     let isEnemyPhaseActive = false;
+    let isMovingAnimationActive = false;
     let floatingTexts = [];
 
     const SKILL_DATA = {
-      "Vanguard": { name: "Iron Bastion", desc: "Locks into Shield Wall and braces, raising Front Armor by +15 for 1 turn.", cost: "3 Fatigue" },
-      "Halberdier": { name: "Spear Hedge", desc: "Braces weapon forward to execute reaction strikes on approaching hostiles.", cost: "Passive Formation" },
-      "Archer": { name: "Dead-Eye Volley", desc: "Strikes enemy at range 3-4 ignoring target forest evasion bonuses.", cost: "4 Fatigue" },
-      "Flyer": { name: "Dive Bomb", desc: "Swoops past target tile inflicting +50% Poise impact.", cost: "5 Fatigue" },
-      "Pyromancer": { name: "Ignite Ground", desc: "Blasts tile into flames, clearing Bloom spores and damaging all in blast.", cost: "6 Fatigue" },
-      "Warden": { name: "Momentum Sweep", desc: "Strikes all 3 tiles directly in front with cleaving blade damage.", cost: "5 Fatigue" },
-      "Apothecary": { name: "Field Triage", desc: "Restores +18 HP, purges 10 Fatigue, and cures Stagger on adjacent ally.", cost: "4 Fatigue" },
-      "Duelist": { name: "Hook & Drag", desc: "Pulls enemy from 2 tiles away, spinning their exposed rear quadrant toward you.", cost: "5 Fatigue" },
-      "Grafted": { name: "Spore Siphon", desc: "Channels internal corruption to leech HP from enemies inside Bloom aura.", cost: "Passive Inside Bloom" }
+      "Vanguard":   { name: "Iron Bastion", desc: "Bolsters frontal plate by +15, locks Shield Wall, and halves all frontal kinetic impact.", cost: 3, type: "self" },
+      "Halberdier": { name: "Spear Hedge", desc: "Braces weapon directly forward, executing reaction attacks to interrupt advancing foes.", cost: 2, type: "self" },
+      "Archer":     { name: "Dead-Eye Volley", desc: "Sniper arrow (Range 3-4) ignoring target obstacle cover and forest evasion buffs.", cost: 5, type: "target_enemy", minR: 3, maxR: 4 },
+      "Flyer":      { name: "Dive Bomb", desc: "Aerial descent strike from 2 tiles away dealing 2x Poise shock.", cost: 5, type: "target_enemy", minR: 2, maxR: 2 },
+      "Pyromancer": { name: "Ignite Ground", desc: "Incinerates target tile up to 3 tiles away, clearing Bloom spores and damaging all inside.", cost: 6, type: "target_tile", minR: 1, maxR: 3 },
+      "Warden":     { name: "Momentum Cleave", desc: "Cleaves all three tiles directly in front with a sweeping claymore swing.", cost: 5, type: "self" },
+      "Apothecary": { name: "Field Triage", desc: "Restores +18 HP, purges 10 Fatigue, and cures Stagger on an adjacent ally.", cost: 4, type: "target_ally", minR: 1, maxR: 1 },
+      "Duelist":    { name: "Hook & Drag", desc: "Grapples an enemy 2 tiles away, yanking them adjacent and spinning their unarmored rear toward you.", cost: 5, type: "target_enemy", minR: 2, maxR: 2 },
+      "Grafted":    { name: "Spore Siphon", desc: "Channels internal parasite to drain 12 HP from all adjacent enemies simultaneously.", cost: 4, type: "self" }
     };
 
     let units = [
       // PLAYER ARMY (South)
-      { id: "P1", name: "Vanguard Knight", role: "Vanguard", faction: "PLAYER", x: 4, y: 13, facing: DIRS.NORTH,
-        moveRange: 2, hp: 48, maxHp: 48, fatigue: 0, maxFat: 32, poise: 42, maxPoise: 42,
+      { id: "P1", name: "Vanguard Knight", role: "Vanguard", faction: "PLAYER", x: 4, y: 13, renderX: 4, renderY: 13, facing: DIRS.NORTH,
+        moveRange: 3, hp: 48, maxHp: 48, fatigue: 0, maxFat: 32, poise: 42, maxPoise: 42,
         accuracy: 34, critChance: 0.08, atk: 22, range: 1, poiseAtk: 18, shred: 12,
         shield: true, spear: false, isArcher: false, isFlying: false,
         armor: { FRONT: 55, FLANK: 32, REAR: 15 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P2", name: "Hedge Halberdier", role: "Halberdier", faction: "PLAYER", x: 5, y: 13, facing: DIRS.NORTH,
+      { id: "P2", name: "Hedge Halberdier", role: "Halberdier", faction: "PLAYER", x: 5, y: 13, renderX: 5, renderY: 13, facing: DIRS.NORTH,
         moveRange: 3, hp: 40, maxHp: 40, fatigue: 0, maxFat: 26, poise: 32, maxPoise: 32,
         accuracy: 42, critChance: 0.15, atk: 26, range: 2, poiseAtk: 16, shred: 15,
         shield: false, spear: true, isArcher: false, isFlying: false,
@@ -339,7 +338,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P3", name: "Outrider Scout", role: "Archer", faction: "PLAYER", x: 4, y: 14, facing: DIRS.NORTH,
+      { id: "P3", name: "Outrider Scout", role: "Archer", faction: "PLAYER", x: 4, y: 14, renderX: 4, renderY: 14, facing: DIRS.NORTH,
         moveRange: 4, hp: 30, maxHp: 30, fatigue: 0, maxFat: 22, poise: 18, maxPoise: 18,
         accuracy: 58, critChance: 0.28, atk: 21, range: 3, poiseAtk: 10, shred: 8,
         shield: false, spear: false, isArcher: true, isFlying: false,
@@ -347,7 +346,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P4", name: "Skyguard Pegasus", role: "Flyer", faction: "PLAYER", x: 11, y: 13, facing: DIRS.NORTH,
+      { id: "P4", name: "Skyguard Pegasus", role: "Flyer", faction: "PLAYER", x: 11, y: 13, renderX: 11, renderY: 13, facing: DIRS.NORTH,
         moveRange: 5, hp: 34, maxHp: 34, fatigue: 0, maxFat: 28, poise: 24, maxPoise: 24,
         accuracy: 50, critChance: 0.20, atk: 22, range: 1, poiseAtk: 14, shred: 10,
         shield: false, spear: true, isArcher: false, isFlying: true,
@@ -355,7 +354,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P5", name: "Pyromancer", role: "Pyromancer", faction: "PLAYER", x: 12, y: 14, facing: DIRS.NORTH,
+      { id: "P5", name: "Pyromancer", role: "Pyromancer", faction: "PLAYER", x: 12, y: 14, renderX: 12, renderY: 14, facing: DIRS.NORTH,
         moveRange: 3, hp: 32, maxHp: 32, fatigue: 0, maxFat: 24, poise: 20, maxPoise: 20,
         accuracy: 45, critChance: 0.18, atk: 28, range: 3, poiseAtk: 22, shred: 14,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -363,7 +362,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P6", name: "Greatsword Warden", role: "Warden", faction: "PLAYER", x: 6, y: 12, facing: DIRS.NORTH,
+      { id: "P6", name: "Greatsword Warden", role: "Warden", faction: "PLAYER", x: 6, y: 12, renderX: 6, renderY: 12, facing: DIRS.NORTH,
         moveRange: 3, hp: 44, maxHp: 44, fatigue: 0, maxFat: 35, poise: 38, maxPoise: 38,
         accuracy: 38, critChance: 0.22, atk: 30, range: 1, poiseAtk: 24, shred: 18,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -371,7 +370,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P7", name: "Apothecary", role: "Apothecary", faction: "PLAYER", x: 5, y: 14, facing: DIRS.NORTH,
+      { id: "P7", name: "Apothecary", role: "Apothecary", faction: "PLAYER", x: 5, y: 14, renderX: 5, renderY: 14, facing: DIRS.NORTH,
         moveRange: 3, hp: 32, maxHp: 32, fatigue: 0, maxFat: 25, poise: 20, maxPoise: 20,
         accuracy: 40, critChance: 0.10, atk: 15, range: 1, poiseAtk: 8, shred: 4,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -379,15 +378,15 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P8", name: "Hook-Chain Duelist", role: "Duelist", faction: "PLAYER", x: 10, y: 12, facing: DIRS.NORTH,
-        moveRange: 4, hp: 35, maxHp: 35, fatigue: 0, maxFat: 28, poise: 22, maxPoise: 22,
+      { id: "P8", name: "Hook-Chain Duelist", role: "Duelist", faction: "PLAYER", x: 10, y: 12, renderX: 10, renderY: 12, facing: DIRS.NORTH,
+        moveRange: 3, hp: 35, maxHp: 35, fatigue: 0, maxFat: 28, poise: 22, maxPoise: 22, // Rebalanced moveRange: 3
         accuracy: 62, critChance: 0.32, atk: 24, range: 2, poiseAtk: 16, shred: 12,
         shield: false, spear: false, isArcher: false, isFlying: false,
         armor: { FRONT: 18, FLANK: 14, REAR: 8 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P9", name: "Grafted Remnant", role: "Grafted", faction: "PLAYER", x: 8, y: 13, facing: DIRS.NORTH,
+      { id: "P9", name: "Grafted Remnant", role: "Grafted", faction: "PLAYER", x: 8, y: 13, renderX: 8, renderY: 13, facing: DIRS.NORTH,
         moveRange: 3, hp: 50, maxHp: 50, fatigue: 0, maxFat: 38, poise: 45, maxPoise: 45,
         accuracy: 32, critChance: 0.12, atk: 26, range: 1, poiseAtk: 20, shred: 16,
         shield: false, spear: false, isArcher: false, isFlying: false, isGrafted: true,
@@ -396,15 +395,15 @@
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
       // HOSTILE FORCES (North)
-      { id: "E1", name: "Imperial Footman", role: "Vanguard", faction: "ENEMY", x: 4, y: 2, facing: DIRS.SOUTH,
-        moveRange: 2, hp: 36, maxHp: 36, fatigue: 0, maxFat: 25, poise: 26, maxPoise: 26,
+      { id: "E1", name: "Imperial Footman", role: "Vanguard", faction: "ENEMY", x: 4, y: 2, renderX: 4, renderY: 2, facing: DIRS.SOUTH,
+        moveRange: 3, hp: 36, maxHp: 36, fatigue: 0, maxFat: 25, poise: 26, maxPoise: 26,
         accuracy: 32, critChance: 0.10, atk: 20, range: 1, poiseAtk: 15, shred: 9,
         shield: true, spear: false, isArcher: false, isFlying: false,
         armor: { FRONT: 35, FLANK: 22, REAR: 10 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E2", name: "Imperial Halberd", role: "Halberdier", faction: "ENEMY", x: 5, y: 2, facing: DIRS.SOUTH,
+      { id: "E2", name: "Imperial Halberd", role: "Halberdier", faction: "ENEMY", x: 5, y: 2, renderX: 5, renderY: 2, facing: DIRS.SOUTH,
         moveRange: 3, hp: 36, maxHp: 36, fatigue: 0, maxFat: 25, poise: 26, maxPoise: 26,
         accuracy: 35, critChance: 0.12, atk: 22, range: 2, poiseAtk: 14, shred: 12,
         shield: false, spear: true, isArcher: false, isFlying: false,
@@ -412,7 +411,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E3", name: "Harpy Scout", role: "Flyer", faction: "ENEMY", x: 13, y: 1, facing: DIRS.SOUTH,
+      { id: "E3", name: "Harpy Scout", role: "Flyer", faction: "ENEMY", x: 13, y: 1, renderX: 13, renderY: 1, facing: DIRS.SOUTH,
         moveRange: 5, hp: 28, maxHp: 28, fatigue: 0, maxFat: 24, poise: 18, maxPoise: 18,
         accuracy: 48, critChance: 0.18, atk: 20, range: 1, poiseAtk: 12, shred: 8,
         shield: false, spear: false, isArcher: false, isFlying: true,
@@ -420,15 +419,15 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E4", name: "Imperial Arbalest", role: "Archer", faction: "ENEMY", x: 11, y: 2, facing: DIRS.SOUTH,
-        moveRange: 3, hp: 28, maxHp: 28, fatigue: 0, maxFat: 22, poise: 18, maxPoise: 18,
+      { id: "E4", name: "Imperial Arbalest", role: "Archer", faction: "ENEMY", x: 11, y: 2, renderX: 11, renderY: 2, facing: DIRS.SOUTH,
+        moveRange: 4, hp: 28, maxHp: 28, fatigue: 0, maxFat: 22, poise: 18, maxPoise: 18,
         accuracy: 50, critChance: 0.22, atk: 22, range: 3, poiseAtk: 12, shred: 10,
         shield: false, spear: false, isArcher: true, isFlying: false,
         armor: { FRONT: 18, FLANK: 12, REAR: 6 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E5", name: "Heretic Pyro", role: "Pyromancer", faction: "ENEMY", x: 12, y: 2, facing: DIRS.SOUTH,
+      { id: "E5", name: "Heretic Pyro", role: "Pyromancer", faction: "ENEMY", x: 12, y: 2, renderX: 12, renderY: 2, facing: DIRS.SOUTH,
         moveRange: 3, hp: 30, maxHp: 30, fatigue: 0, maxFat: 24, poise: 18, maxPoise: 18,
         accuracy: 42, critChance: 0.18, atk: 27, range: 3, poiseAtk: 20, shred: 14,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -436,7 +435,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E6", name: "Mercenary Zweihänder", role: "Warden", faction: "ENEMY", x: 6, y: 3, facing: DIRS.SOUTH,
+      { id: "E6", name: "Mercenary Zweihänder", role: "Warden", faction: "ENEMY", x: 6, y: 3, renderX: 6, renderY: 3, facing: DIRS.SOUTH,
         moveRange: 3, hp: 42, maxHp: 42, fatigue: 0, maxFat: 32, poise: 34, maxPoise: 34,
         accuracy: 36, critChance: 0.20, atk: 28, range: 1, poiseAtk: 22, shred: 16,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -444,7 +443,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E7", name: "Plague Leech", role: "Apothecary", faction: "ENEMY", x: 3, y: 1, facing: DIRS.SOUTH,
+      { id: "E7", name: "Plague Leech", role: "Apothecary", faction: "ENEMY", x: 3, y: 1, renderX: 3, renderY: 1, facing: DIRS.SOUTH,
         moveRange: 3, hp: 30, maxHp: 30, fatigue: 0, maxFat: 24, poise: 18, maxPoise: 18,
         accuracy: 38, critChance: 0.10, atk: 14, range: 1, poiseAtk: 8, shred: 4,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -452,16 +451,16 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E8", name: "Flail Marauder", role: "Duelist", faction: "ENEMY", x: 10, y: 3, facing: DIRS.SOUTH,
-        moveRange: 4, hp: 34, maxHp: 34, fatigue: 0, maxFat: 26, poise: 22, maxPoise: 22,
+      { id: "E8", name: "Flail Marauder", role: "Duelist", faction: "ENEMY", x: 10, y: 3, renderX: 10, renderY: 3, facing: DIRS.SOUTH,
+        moveRange: 3, hp: 34, maxHp: 34, fatigue: 0, maxFat: 26, poise: 22, maxPoise: 22,
         accuracy: 58, critChance: 0.28, atk: 23, range: 2, poiseAtk: 16, shred: 12,
         shield: false, spear: false, isArcher: false, isFlying: false,
         armor: { FRONT: 20, FLANK: 14, REAR: 8 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "ET", name: "Bloom Thrall", role: "Grafted", faction: "ENEMY", x: 8, y: 2, facing: DIRS.SOUTH,
-        moveRange: 3, hp: 60, maxHp: 60, fatigue: 0, maxFat: 42, poise: 65, maxPoise: 65,
+      { id: "ET", name: "Bloom Thrall", role: "Grafted", faction: "ENEMY", x: 8, y: 2, renderX: 8, renderY: 2, facing: DIRS.SOUTH,
+        moveRange: 4, hp: 60, maxHp: 60, fatigue: 0, maxFat: 42, poise: 65, maxPoise: 65,
         accuracy: 28, critChance: 0.18, atk: 28, range: 1, poiseAtk: 26, shred: 18,
         shield: false, spear: false, isArcher: false, isFlying: false, afflicted: true,
         armor: { FRONT: 20, FLANK: 20, REAR: 20 },
@@ -519,7 +518,88 @@
       });
     }
 
-    // Get move reachable tiles for ANY unit
+    // Shortest Path Finding (Breadth-First Search)
+    function findShortestPath(unit, targetX, targetY) {
+      let queue = [{ x: unit.x, y: unit.y, path: [] }];
+      let visited = new Set([`${unit.x},${unit.y}`]);
+
+      while (queue.length > 0) {
+        let curr = queue.shift();
+        if (curr.x === targetX && curr.y === targetY) {
+          return curr.path;
+        }
+
+        for (let d of Object.values(DIRS)) {
+          let nx = curr.x + d.dx;
+          let ny = curr.y + d.dy;
+          let key = `${nx},${ny}`;
+
+          if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS || visited.has(key)) continue;
+          if (ruinTiles.has(key)) continue;
+          if (!unit.isFlying && isWaterTile(nx, ny)) continue;
+
+          let occ = getUnitAt(nx, ny);
+          if (occ && (occ.x !== targetX || occ.y !== targetY) && occ.faction !== unit.faction) continue;
+
+          visited.add(key);
+          queue.push({ x: nx, y: ny, path: [...curr.path, { x: nx, y: ny }] });
+        }
+      }
+      return [{ x: targetX, y: targetY }];
+    }
+
+    // Smooth Tile-by-Tile Animated Unit Movement
+    async function animateUnitMovement(unit, targetX, targetY) {
+      isMovingAnimationActive = true;
+      let path = findShortestPath(unit, targetX, targetY);
+
+      for (let step of path) {
+        let oldX = unit.x;
+        let oldY = unit.y;
+
+        // Check Zone of Control before leaving tile
+        if (!checkZOC(unit, oldX, oldY)) {
+          isMovingAnimationActive = false;
+          return false;
+        }
+
+        // Animated sub-tile interpolation
+        let frames = 8;
+        let dx = (step.x - unit.renderX) / frames;
+        let dy = (step.y - unit.renderY) / frames;
+
+        // Orient facing toward the step
+        if (step.x > unit.x) unit.facing = DIRS.EAST;
+        else if (step.x < unit.x) unit.facing = DIRS.WEST;
+        else if (step.y > unit.y) unit.facing = DIRS.SOUTH;
+        else if (step.y < unit.y) unit.facing = DIRS.NORTH;
+
+        for (let f = 0; f < frames; f++) {
+          unit.renderX += dx;
+          unit.renderY += dy;
+          await delay(16);
+        }
+
+        unit.x = step.x;
+        unit.y = step.y;
+        unit.renderX = step.x;
+        unit.renderY = step.y;
+
+        if (!unit.isGrafted) {
+          unit.fatigue += isInsideBloomAura(unit.x, unit.y) ? 2.0 : 1.0;
+        }
+
+        // Spear Hedge Reaction Check
+        if (!checkSpearHedge(unit, unit.x, unit.y)) {
+          isMovingAnimationActive = false;
+          return false;
+        }
+      }
+
+      isMovingAnimationActive = false;
+      return true;
+    }
+
     function getReachableTilesForUnit(unit) {
       if (!unit || unit.hp <= 0 || unit.staggered) return [];
 
@@ -564,13 +644,11 @@
       return valid;
     }
 
-    // Combined Move + Threat Range calculation
     function getCombinedReach(unit) {
       let moveTiles = getReachableTilesForUnit(unit);
       let attackMap = new Set();
 
       moveTiles.forEach(mt => {
-        // Find potential targets within range from this movement node
         for (let x = Math.max(0, mt.x - unit.range); x <= Math.min(COLS - 1, mt.x + unit.range); x++) {
           for (let y = Math.max(0, mt.y - unit.range); y <= Math.min(ROWS - 1, mt.y + unit.range); y++) {
             if (canUnitTargetFrom(unit, mt.x, mt.y, x, y)) {
@@ -580,9 +658,7 @@
         }
       });
 
-      // Filter moveTiles to unblocked locations for actual stepping
       let unblockedMoves = moveTiles.filter(t => !getUnitAt(t.x, t.y) || (t.x === unit.x && t.y === unit.y));
-
       return {
         moveTiles: unblockedMoves,
         threatTiles: Array.from(attackMap).map(k => {
@@ -652,13 +728,13 @@
         defender.offsetX = perpX * 10;
         defender.offsetY = perpY * 10;
         setTimeout(() => { defender.offsetX = 0; defender.offsetY = 0; }, 180);
-        log(`[DODGE] <b>${defender.name}</b> evaded <b>${attacker.name}</b>!`);
+        log(`[DODGE] <b>${defender.name}</b> evaded strike from <b>${attacker.name}</b>!`);
         return;
       }
 
       if (defender.inShieldWall && res.angle === "FRONT" && (attacker.range > 1 || attacker.isArcher)) {
         spawnFloatingText("DEFLECT", "var(--player-blue)", defender.x, defender.y);
-        log(`[SHIELD WALL] <b>${defender.name}</b> negated ranged projectile!`);
+        log(`[SHIELD WALL] <b>${defender.name}</b> deflected ranged missile!`);
         return;
       }
 
@@ -711,7 +787,7 @@
       let critTag = isCrit ? "<span style='color:var(--accent-gold); font-weight:bold;'> [CRIT!]</span>" : "";
       log(`${tag}<b>${attacker.name}</b> strikes <b>${defender.name}</b> (${res.angle})${critTag} for ${unmitigated.toFixed(1)} DMG!`);
 
-      if (defender.hp <= 0) log(`💀 <b>${defender.name}</b> was slain!`);
+      if (defender.hp <= 0) log(`💀 <b>${defender.name}</b> has fallen!`);
 
       updateAuras();
       updateIntelPanel();
@@ -720,7 +796,7 @@
     function checkZOC(mover, fromX, fromY) {
       for (let e of units.filter(u => u.faction !== mover.faction && u.hp > 0 && !u.staggered)) {
         if (fromX === e.x + e.facing.dx && fromY === e.y + e.facing.dy) {
-          log(`<span style="color:var(--accent-gold)">[!] ZoC Strike: ${e.name} opportunity attack!</span>`);
+          log(`<span style="color:var(--accent-gold)">[!] ZoC Strike: ${e.name} executes opportunity attack!</span>`);
           executeCombat(e, mover, true);
           if (mover.hp <= 0) return false;
         }
@@ -731,7 +807,7 @@
     function checkSpearHedge(mover, toX, toY) {
       for (let e of units.filter(u => u.faction !== mover.faction && u.hp > 0 && u.inSpearHedge && !u.staggered)) {
         if (toX === e.x + e.facing.dx && toY === e.y + e.facing.dy) {
-          log(`<span style="color:var(--accent-gold)">[!] Spear Hedge: ${e.name} intercept!</span>`);
+          log(`<span style="color:var(--accent-gold)">[!] Spear Hedge: ${e.name} intercepts advance!</span>`);
           executeCombat(e, mover, true);
           if (mover.staggered || mover.hp <= 0) return false;
         }
@@ -739,31 +815,109 @@
       return true;
     }
 
-    function executeClassSkill(actor, target) {
-      if (actor.role === "Apothecary") {
-        target.hp = Math.min(target.maxHp, target.hp + 18);
-        target.fatigue = Math.max(0, target.fatigue - 10);
-        target.staggered = false;
-        actor.fatigue = Math.min(actor.maxFat, actor.fatigue + 4);
-        actor.acted = true;
-        spawnFloatingText("TREATED!", "var(--player-blue)", target.x, target.y);
-        log(`<b>${actor.name}</b> triaged <b>${target.name}</b> (+18 HP, -10 Fatigue).`);
-      } else if (actor.role === "Duelist") {
-        let dx = Math.sign(actor.x - target.x);
-        let dy = Math.sign(actor.y - target.y);
-        let pullX = target.x + dx;
-        let pullY = target.y + dy;
+    // Activated Player Class Skills
+    function executeSkillSelf(u) {
+      let s = SKILL_DATA[u.role];
+      u.fatigue = Math.min(u.maxFat, u.fatigue + s.cost);
+      u.acted = true;
+
+      if (u.role === "Vanguard") {
+        u.armor.FRONT += 15;
+        u.inShieldWall = true;
+        spawnFloatingText("BASTION!", "var(--player-blue)", u.x, u.y);
+        log(`<b>${u.name}</b> fortified stance! Front Plate +15 and Shield Wall braced.`);
+      } else if (u.role === "Halberdier") {
+        u.inSpearHedge = true;
+        spawnFloatingText("HEDGE!", "var(--player-blue)", u.x, u.y);
+        log(`<b>${u.name}</b> leveled halberd forward, setting reaction hedge!`);
+      } else if (u.role === "Warden") {
+        spawnFloatingText("CLEAVE!", "var(--accent-gold)", u.x, u.y);
+        // Cleave 3 tiles directly forward
+        let f = u.facing;
+        let hitTiles = [];
+        if (f === DIRS.NORTH || f === DIRS.SOUTH) {
+          hitTiles = [{ x: u.x - 1, y: u.y + f.dy }, { x: u.x, y: u.y + f.dy }, { x: u.x + 1, y: u.y + f.dy }];
+        } else {
+          hitTiles = [{ x: u.x + f.dx, y: u.y - 1 }, { x: u.x + f.dx, y: u.y }, { x: u.x + f.dx, y: u.y + 1 }];
+        }
+        hitTiles.forEach(t => {
+          let victim = getUnitAt(t.x, t.y);
+          if (victim && victim.faction !== u.faction) {
+            victim.hp = Math.max(0, victim.hp - 24);
+            victim.flashRedTimer = 8;
+            spawnFloatingText("-24 HP", "var(--enemy-red)", victim.x, victim.y);
+            log(`Cleaving blade struck <b>${victim.name}</b> for 24 damage!`);
+          }
+        });
+      } else if (u.role === "Grafted") {
+        spawnFloatingText("SIPHON!", "var(--bloom-green)", u.x, u.y);
+        for (let d of Object.values(DIRS)) {
+          let victim = getUnitAt(u.x + d.dx, u.y + d.dy);
+          if (victim && victim.faction !== u.faction) {
+            victim.hp = Math.max(0, victim.hp - 12);
+            victim.flashRedTimer = 8;
+            u.hp = Math.min(u.maxHp, u.hp + 12);
+            spawnFloatingText("-12 HP", "var(--bloom-green)", victim.x, victim.y);
+            log(`<b>${u.name}</b> siphoned 12 HP from <b>${victim.name}</b>!`);
+          }
+        }
+      }
+
+      updateAuras();
+      updateIntelPanel();
+    }
+
+    function executeSkillTarget(actor, targetX, targetY) {
+      let s = SKILL_DATA[actor.role];
+      actor.fatigue = Math.min(actor.maxFat, actor.fatigue + s.cost);
+      actor.acted = true;
+
+      let victim = getUnitAt(targetX, targetY);
+
+      if (actor.role === "Archer" && victim) {
+        spawnFloatingText("SNIPER!", "var(--accent-gold)", victim.x, victim.y);
+        let dmg = 28;
+        victim.hp = Math.max(0, victim.hp - dmg);
+        victim.flashRedTimer = 8;
+        log(`Dead-Eye Volley struck <b>${victim.name}</b> across range for ${dmg} DMG!`);
+      } else if (actor.role === "Flyer" && victim) {
+        spawnFloatingText("DIVE BOMB!", "var(--player-blue)", victim.x, victim.y);
+        victim.hp = Math.max(0, victim.hp - 24);
+        victim.poise = Math.max(0, victim.poise - 30);
+        if (victim.poise <= 0) victim.staggered = true;
+        victim.flashRedTimer = 8;
+        log(`Skyguard dive-bombed <b>${victim.name}</b> inflicting heavy Poise shock!`);
+      } else if (actor.role === "Pyromancer") {
+        spawnFloatingText("BLAST!", "var(--enemy-red)", targetX, targetY);
+        // Scorch tile & clear Bloom aura
+        if (victim) {
+          victim.hp = Math.max(0, victim.hp - 32);
+          victim.flashRedTimer = 8;
+          log(`Pyromancer incinerated <b>${victim.name}</b> for 32 Fire DMG!`);
+        }
+      } else if (actor.role === "Apothecary" && victim) {
+        victim.hp = Math.min(victim.maxHp, victim.hp + 18);
+        victim.fatigue = Math.max(0, victim.fatigue - 10);
+        victim.staggered = false;
+        spawnFloatingText("TRIAGE!", "var(--bloom-green)", victim.x, victim.y);
+        log(`<b>${actor.name}</b> triaged <b>${victim.name}</b> (+18 HP, -10 Fatigue).`);
+      } else if (actor.role === "Duelist" && victim) {
+        let dx = Math.sign(actor.x - victim.x);
+        let dy = Math.sign(actor.y - victim.y);
+        let pullX = victim.x + dx;
+        let pullY = victim.y + dy;
 
         if (!getUnitAt(pullX, pullY) && !isWaterTile(pullX, pullY) && !ruinTiles.has(`${pullX},${pullY}`)) {
-          target.x = pullX;
-          target.y = pullY;
+          victim.x = pullX;
+          victim.y = pullY;
+          victim.renderX = pullX;
+          victim.renderY = pullY;
         }
-        target.facing = actor.facing;
-        actor.fatigue = Math.min(actor.maxFat, actor.fatigue + 5);
-        actor.acted = true;
-        spawnFloatingText("HOOKED!", "var(--accent-gold)", target.x, target.y);
-        log(`<b>${actor.name}</b> hooked and dragged <b>${target.name}</b>, exposing rear!`);
+        victim.facing = actor.facing;
+        spawnFloatingText("HOOKED!", "var(--accent-gold)", victim.x, victim.y);
+        log(`<b>${actor.name}</b> hooked and dragged <b>${victim.name}</b>, exposing rear!`);
       }
+
       updateAuras();
       updateIntelPanel();
     }
@@ -797,6 +951,7 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    // Aggressive Multi-Step Sequential Enemy AI
     async function runTacticalAISequential() {
       isEnemyPhaseActive = true;
       let activeEnemies = units.filter(u => u.faction === "ENEMY" && u.hp > 0);
@@ -807,18 +962,9 @@
         if (enemy.staggered) {
           enemy.staggered = false;
           enemy.poise = enemy.maxPoise * 0.5;
-          log(`${enemy.name} recovered from stagger.`);
+          log(`${enemy.name} shook off stagger.`);
           await delay(350);
           continue;
-        }
-
-        if (enemy.role === "Apothecary") {
-          let wounded = units.filter(u => u.faction === "ENEMY" && u.hp > 0 && u.hp < u.maxHp && Math.abs(u.x - enemy.x) + Math.abs(u.y - enemy.y) <= 1);
-          if (wounded.length > 0) {
-            executeClassSkill(enemy, wounded[0]);
-            await delay(450);
-            continue;
-          }
         }
 
         let players = units.filter(p => p.faction === "PLAYER" && p.hp > 0);
@@ -826,30 +972,26 @@
         players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
         let target = players[0];
 
-        let sx = target.x > enemy.x ? 1 : (target.x < enemy.x ? -1 : 0);
-        let sy = target.y > enemy.y ? 1 : (target.y < enemy.y ? -1 : 0);
+        // Pick best accessible tile that gets closest to target up to full moveRange
+        let reachable = getReachableTilesForUnit(enemy);
+        let bestTile = { x: enemy.x, y: enemy.y };
+        let minDist = Math.abs(enemy.x - target.x) + Math.abs(enemy.y - target.y);
 
-        if (!enemy.isFlying && ((enemy.y < 7 && target.y > 7) || (enemy.y > 7 && target.y < 7))) {
-          let bridgeX = enemy.x <= 8 ? 5 : 11;
-          sx = bridgeX > enemy.x ? 1 : (bridgeX < enemy.x ? -1 : 0);
-          sy = 7 > enemy.y ? 1 : (7 < enemy.y ? -1 : 0);
-        }
+        reachable.forEach(t => {
+          if (getUnitAt(t.x, t.y) && !(t.x === enemy.x && t.y === enemy.y)) return;
+          let d = Math.abs(t.x - target.x) + Math.abs(t.y - target.y);
+          if (d < minDist) {
+            minDist = d;
+            bestTile = t;
+          }
+        });
 
-        let nx = enemy.x + sx;
-        let ny = enemy.y + sy;
-
-        let moved = false;
-        if (sx !== 0 && !getUnitAt(nx, enemy.y) && !ruinTiles.has(`${nx},${enemy.y}`) && (enemy.isFlying || !isWaterTile(nx, enemy.y)) && checkSpearHedge(enemy, nx, enemy.y)) {
-          enemy.x = nx;
-          moved = true;
-        } else if (sy !== 0 && !getUnitAt(enemy.x, ny) && !ruinTiles.has(`${enemy.x},${ny}`) && (enemy.isFlying || !isWaterTile(enemy.x, ny)) && checkSpearHedge(enemy, enemy.x, ny)) {
-          enemy.y = ny;
-          moved = true;
+        if (bestTile.x !== enemy.x || bestTile.y !== enemy.y) {
+          await animateUnitMovement(enemy, bestTile.x, bestTile.y);
         }
 
         orientUnitTowards(enemy, target);
         updateAuras();
-        if (moved) await delay(350);
 
         if (canUnitTarget(enemy, target) && enemy.hp > 0 && !enemy.staggered) {
           executeCombat(enemy, target);
@@ -869,13 +1011,11 @@
       }
     }
 
-    // High-Fidelity 16-Bit Procedural Class Sprites
     function drawPixelUnit(u, px, py) {
       ctx.save();
       let bob = u.isFlying ? Math.sin(animationPulse * 2) * 3 : 0;
       ctx.translate(px + TILE_SIZE/2 + u.offsetX, py + TILE_SIZE/2 + u.offsetY + bob);
 
-      // Base shadow
       ctx.fillStyle = "rgba(0,0,0,0.38)";
       ctx.beginPath();
       ctx.ellipse(0, TILE_SIZE/2 - 5 - bob, 11, 5, 0, 0, Math.PI * 2);
@@ -888,41 +1028,34 @@
       let trimCol = isFlashing ? "#ffffff" : (u.faction === "PLAYER" ? "#8ea7db" : (u.afflicted ? "#598a42" : "#cb5e6c"));
       let skin = "#e5b887";
 
-      // Class-specific body sprites
       switch(u.role) {
         case "Vanguard":
-          // Heavy Plate Armor & Golden Crest
           ctx.fillStyle = mainCol; ctx.fillRect(-7, -8, 14, 16);
           ctx.fillStyle = trimCol; ctx.fillRect(-5, -6, 10, 12);
-          ctx.fillStyle = "#e3b341"; ctx.fillRect(-4, -13, 8, 3); // Crest
-          ctx.fillStyle = trimCol; ctx.fillRect(-5, -10, 10, 5); // Helm
-          // Kite Shield & Broadsword
+          ctx.fillStyle = "#e3b341"; ctx.fillRect(-4, -13, 8, 3);
+          ctx.fillStyle = trimCol; ctx.fillRect(-5, -10, 10, 5);
           ctx.fillStyle = "#e3b341"; ctx.fillRect(-11, -5, 4, 11);
           ctx.fillStyle = "#ffffff"; ctx.fillRect(8, -12, 2, 16);
           break;
 
         case "Halberdier":
-          // Sallet Helmet & Spiked Polearm
           ctx.fillStyle = mainCol; ctx.fillRect(-6, -7, 12, 14);
           ctx.fillStyle = trimCol; ctx.fillRect(-4, -5, 8, 10);
-          ctx.fillStyle = trimCol; ctx.fillRect(-5, -11, 10, 5); // Sallet
-          ctx.fillStyle = "#8b5a2b"; ctx.fillRect(7, -18, 2, 28); // Shaft
-          ctx.fillStyle = "#e5e9f0"; ctx.fillRect(6, -21, 4, 6);  // Blade head
+          ctx.fillStyle = trimCol; ctx.fillRect(-5, -11, 10, 5);
+          ctx.fillStyle = "#8b5a2b"; ctx.fillRect(7, -18, 2, 28);
+          ctx.fillStyle = "#e5e9f0"; ctx.fillRect(6, -21, 4, 6);
           break;
 
         case "Archer":
-          // Ranger Hood, Quiver, and Recurve Bow
-          ctx.fillStyle = "#2d4a22"; ctx.fillRect(-6, -11, 12, 6); // Hood
+          ctx.fillStyle = "#2d4a22"; ctx.fillRect(-6, -11, 12, 6);
           ctx.fillStyle = skin; ctx.fillRect(-3, -6, 6, 3);
           ctx.fillStyle = mainCol; ctx.fillRect(-5, -3, 10, 11);
-          // Recurve Bow
           ctx.strokeStyle = "#8b5a2b"; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.arc(8, 0, 7, -Math.PI/2, Math.PI/2); ctx.stroke();
-          ctx.fillStyle = "#d08770"; ctx.fillRect(-9, -7, 3, 10); // Quiver
+          ctx.fillStyle = "#d08770"; ctx.fillRect(-9, -7, 3, 10);
           break;
 
         case "Flyer":
-          // Pegasus Wings & Soaring Lance
           ctx.fillStyle = "#ffffff";
           ctx.beginPath();
           ctx.ellipse(-12, -4, 8, 4, -0.3, 0, Math.PI * 2);
@@ -930,13 +1063,12 @@
           ctx.fill();
           ctx.fillStyle = mainCol; ctx.fillRect(-5, -7, 10, 13);
           ctx.fillStyle = trimCol; ctx.fillRect(-4, -11, 8, 5);
-          ctx.fillStyle = "#e5e9f0"; ctx.fillRect(6, -18, 2, 24); // Lance
+          ctx.fillStyle = "#e5e9f0"; ctx.fillRect(6, -18, 2, 24);
           break;
 
         case "Pyromancer":
-          // Robes & Floating Flame Core
           ctx.fillStyle = "#4c1d24"; ctx.fillRect(-6, -6, 12, 14);
-          ctx.fillStyle = "#8c283c"; ctx.fillRect(-4, -11, 8, 6); // Cowl
+          ctx.fillStyle = "#8c283c"; ctx.fillRect(-4, -11, 8, 6);
           ctx.fillStyle = "#ebcb8b";
           let flamePulse = Math.sin(animationPulse * 4) * 2;
           ctx.beginPath(); ctx.arc(8, -4 + flamePulse, 4, 0, Math.PI * 2); ctx.fill();
@@ -944,52 +1076,44 @@
           break;
 
         case "Warden":
-          // Broad shoulders & Massive Two-Handed Claymore
           ctx.fillStyle = mainCol; ctx.fillRect(-8, -6, 16, 14);
           ctx.fillStyle = trimCol; ctx.fillRect(-5, -11, 10, 6);
-          // Giant Greatsword
           ctx.fillStyle = "#d8dee9"; ctx.fillRect(8, -20, 3, 26);
-          ctx.fillStyle = "#e3b341"; ctx.fillRect(6, -8, 7, 2); // Crossguard
+          ctx.fillStyle = "#e3b341"; ctx.fillRect(6, -8, 7, 2);
           break;
 
         case "Apothecary":
-          // Satchel, Field Cap, and Remedy Potion
-          ctx.fillStyle = "#2e3440"; ctx.fillRect(-5, -10, 10, 5); // Cap
+          ctx.fillStyle = "#2e3440"; ctx.fillRect(-5, -10, 10, 5);
           ctx.fillStyle = skin; ctx.fillRect(-3, -6, 6, 3);
-          ctx.fillStyle = "#d8dee9"; ctx.fillRect(-5, -3, 10, 11); // Tunic
-          ctx.fillStyle = "#8b5a2b"; ctx.fillRect(-8, -2, 3, 7);  // Satchel
-          ctx.fillStyle = "#56d364"; ctx.fillRect(7, 0, 4, 6);   // Potion vial
+          ctx.fillStyle = "#d8dee9"; ctx.fillRect(-5, -3, 10, 11);
+          ctx.fillStyle = "#8b5a2b"; ctx.fillRect(-8, -2, 3, 7);
+          ctx.fillStyle = "#56d364"; ctx.fillRect(7, 0, 4, 6);
           break;
 
         case "Duelist":
-          // Feathered Turban, Light Tunic, and Sickle Chain
           ctx.fillStyle = "#b48ead"; ctx.fillRect(-5, -11, 10, 5);
           ctx.fillStyle = skin; ctx.fillRect(-3, -6, 6, 3);
           ctx.fillStyle = mainCol; ctx.fillRect(-5, -3, 10, 11);
-          // Sickle
           ctx.strokeStyle = "#e5e9f0"; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.arc(7, -2, 4, 0, Math.PI); ctx.stroke();
-          ctx.fillStyle = "#4c566a"; ctx.fillRect(6, 2, 2, 6); // Chain line
+          ctx.fillStyle = "#4c566a"; ctx.fillRect(6, 2, 2, 6);
           break;
 
         case "Grafted":
-          // Briar Carapace & Briar Root Tendrils
           ctx.fillStyle = "#243a1f"; ctx.fillRect(-7, -7, 14, 15);
           ctx.fillStyle = "#4e7d32"; ctx.fillRect(-5, -5, 10, 10);
           ctx.fillStyle = "#a3be8c";
-          ctx.fillRect(-9, -4 + Math.sin(animationPulse*3)*2, 3, 8); // Tendril left
-          ctx.fillRect(7, -4 - Math.sin(animationPulse*3)*2, 3, 8);  // Tendril right
+          ctx.fillRect(-9, -4 + Math.sin(animationPulse*3)*2, 3, 8);
+          ctx.fillRect(7, -4 - Math.sin(animationPulse*3)*2, 3, 8);
           break;
       }
 
-      // Status indicator
       if (u.staggered) {
         ctx.fillStyle = "#f85149";
         ctx.font = "bold 9px monospace";
         ctx.fillText("STUN", -11, -14);
       }
 
-      // Directional Chevron
       ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
       let off = 14;
       ctx.beginPath();
@@ -1000,7 +1124,6 @@
       ctx.fill();
       ctx.restore();
 
-      // Overhead Mini HP Bar
       let barW = TILE_SIZE - 10;
       ctx.fillStyle = "#21262d";
       ctx.fillRect(px + 5 + u.offsetX, py + TILE_SIZE - 6 + u.offsetY, barW, 2.5);
@@ -1014,7 +1137,7 @@
 
       let thrall = units.find(u => u.id === "ET" && u.hp > 0);
 
-      // Render Terrain
+      // Render Map Cells
       for (let x = 0; x < COLS; x++) {
         for (let y = 0; y < ROWS; y++) {
           let px = x * TILE_SIZE;
@@ -1028,7 +1151,6 @@
           }
           ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-          // River & Bridges
           if (y === 7) {
             if (bridgeTiles.has(key)) {
               ctx.fillStyle = "#8a5836";
@@ -1066,17 +1188,15 @@
         }
       }
 
-      // COMBINED MOVEMENT & THREAT RANGE OVERLAY (FOR ANY CLICKED UNIT)
-      if (selectedUnit && selectedUnit.hp > 0 && !actionMode && !isEnemyPhaseActive) {
+      // Combined Reach / Action Overlays
+      if (selectedUnit && selectedUnit.hp > 0 && !actionMode && !isEnemyPhaseActive && !isMovingAnimationActive) {
         let reach = getCombinedReach(selectedUnit);
 
-        // 1. Threat / Attack Boundary (Red/Orange)
         ctx.fillStyle = "rgba(248, 81, 73, 0.22)";
         reach.threatTiles.forEach(t => {
           ctx.fillRect(t.x * TILE_SIZE + 1, t.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
         });
 
-        // 2. Legal Movement Tiles (Cyan/Blue)
         let movePulse = 0.32 + 0.1 * Math.sin(animationPulse * 2);
         ctx.fillStyle = `rgba(88, 166, 255, ${movePulse})`;
         reach.moveTiles.forEach(t => {
@@ -1086,7 +1206,6 @@
         });
       }
 
-      // Targeted Attack Highlight
       if (selectedUnit && actionMode === 'ATTACK' && !isEnemyPhaseActive) {
         ctx.fillStyle = "rgba(248, 81, 73, 0.3)";
         units.filter(e => e.faction !== selectedUnit.faction && e.hp > 0).forEach(e => {
@@ -1096,22 +1215,25 @@
         });
       }
 
-      // Targeted Skill Highlight
-      if (selectedUnit && actionMode === 'SKILL' && !isEnemyPhaseActive) {
-        ctx.fillStyle = "rgba(227, 179, 65, 0.3)";
-        let group = (selectedUnit.role === "Apothecary")
-          ? units.filter(u => u.faction === selectedUnit.faction && u.hp > 0)
-          : units.filter(u => u.faction !== selectedUnit.faction && u.hp > 0);
-        group.forEach(target => {
-          let dist = Math.abs(selectedUnit.x - target.x) + Math.abs(selectedUnit.y - target.y);
-          if (dist <= 2) {
-            ctx.fillRect(target.x * TILE_SIZE + 1, target.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+      if (selectedUnit && actionMode === 'SKILL_TARGET' && !isEnemyPhaseActive) {
+        ctx.fillStyle = "rgba(227, 179, 65, 0.35)";
+        let s = SKILL_DATA[selectedUnit.role];
+        for (let x = 0; x < COLS; x++) {
+          for (let y = 0; y < ROWS; y++) {
+            let dist = Math.abs(selectedUnit.x - x) + Math.abs(selectedUnit.y - y);
+            if (dist >= s.minR && dist <= s.maxR) {
+              ctx.fillRect(x * TILE_SIZE + 1, y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+            }
           }
-        });
+        }
       }
 
-      // Render Units
-      units.filter(u => u.hp > 0).forEach(u => drawPixelUnit(u, u.x * TILE_SIZE, u.y * TILE_SIZE));
+      // Render Units at their interpolated coordinates
+      units.filter(u => u.hp > 0).forEach(u => {
+        let renderX = (u.renderX !== undefined) ? u.renderX : u.x;
+        let renderY = (u.renderY !== undefined) ? u.renderY : u.y;
+        drawPixelUnit(u, renderX * TILE_SIZE, renderY * TILE_SIZE);
+      });
 
       // Floating Combat Texts
       for (let i = floatingTexts.length - 1; i >= 0; i--) {
@@ -1175,9 +1297,8 @@
         </div>
       `;
 
-      let canAct = (u.faction === "PLAYER" && !u.done && !u.staggered && !isBannerPlaying && !isEnemyPhaseActive);
+      let canAct = (u.faction === "PLAYER" && !u.done && !u.staggered && !isBannerPlaying && !isEnemyPhaseActive && !isMovingAnimationActive);
       document.getElementById("btn-strike").disabled = (!canAct || u.acted);
-      // Skill button is ALWAYS enabled for inspected player units to inspect/use
       document.getElementById("btn-skill").disabled = (u.faction !== "PLAYER");
       document.getElementById("btn-rest").disabled = (!canAct || u.acted);
       document.getElementById("btn-face").disabled = (!canAct);
@@ -1194,27 +1315,23 @@
         selectedUnit.done = true;
         document.getElementById("facing-widget").style.display = "none";
         hideMoveModal();
-        log(`${selectedUnit.name} braced facing ${dirName}.`);
+        log(`${selectedUnit.name} braced facing ${dirName}. Turn completed.`);
         updateAuras();
         updateIntelPanel();
       }
     }
 
-    document.getElementById("btn-confirm-move").onclick = () => {
+    document.getElementById("btn-confirm-move").onclick = async () => {
       if (selectedUnit && pendingMoveTile) {
-        let oldX = selectedUnit.x;
-        let oldY = selectedUnit.y;
-        if (checkZOC(selectedUnit, oldX, oldY)) {
-          selectedUnit.x = pendingMoveTile.x;
-          selectedUnit.y = pendingMoveTile.y;
-          if (!selectedUnit.isGrafted) {
-            selectedUnit.fatigue += isInsideBloomAura(selectedUnit.x, selectedUnit.y) ? 2.0 : 1.0;
-          }
+        let tx = pendingMoveTile.x;
+        let ty = pendingMoveTile.y;
+        hideMoveModal();
+        let success = await animateUnitMovement(selectedUnit, tx, ty);
+        if (success) {
           selectedUnit.moved = true;
-          log(`${selectedUnit.name} advanced to (${selectedUnit.x}, ${selectedUnit.y}).`);
+          log(`${selectedUnit.name} navigated to (${selectedUnit.x}, ${selectedUnit.y}).`);
         }
       }
-      hideMoveModal();
       updateAuras();
       updateIntelPanel();
     };
@@ -1222,7 +1339,7 @@
     document.getElementById("btn-cancel-move").onclick = hideMoveModal;
 
     canvas.addEventListener("mousemove", (e) => {
-      if (isEnemyPhaseActive) return;
+      if (isEnemyPhaseActive || isMovingAnimationActive) return;
       const rect = canvas.getBoundingClientRect();
       const gx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
       const gy = Math.floor((e.clientY - rect.top) / TILE_SIZE);
@@ -1252,7 +1369,7 @@
     });
 
     canvas.addEventListener("click", (e) => {
-      if (isBannerPlaying || isEnemyPhaseActive) return;
+      if (isBannerPlaying || isEnemyPhaseActive || isMovingAnimationActive) return;
       const rect = canvas.getBoundingClientRect();
       const gx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
       const gy = Math.floor((e.clientY - rect.top) / TILE_SIZE);
@@ -1268,11 +1385,11 @@
         return;
       }
 
-      if (actionMode === 'SKILL' && selectedUnit) {
-        let target = getUnitAt(gx, gy);
-        if (target) {
-          let dist = Math.abs(selectedUnit.x - target.x) + Math.abs(selectedUnit.y - target.y);
-          if (dist <= 2) executeClassSkill(selectedUnit, target);
+      if (actionMode === 'SKILL_TARGET' && selectedUnit) {
+        let s = SKILL_DATA[selectedUnit.role];
+        let dist = Math.abs(selectedUnit.x - gx) + Math.abs(selectedUnit.y - gy);
+        if (dist >= s.minR && dist <= s.maxR) {
+          executeSkillTarget(selectedUnit, gx, gy);
         }
         actionMode = null;
         updateIntelPanel();
@@ -1297,7 +1414,7 @@
         }
       }
 
-      // Default: Inspect any unit (Player OR Enemy) to reveal combined reach
+      // Default: Inspect any unit
       let clicked = getUnitAt(gx, gy);
       if (clicked) {
         selectedUnit = clicked;
@@ -1331,22 +1448,22 @@
       title.textContent = `${s.name} (${selectedUnit.role})`;
       desc.textContent = s.desc;
 
-      let isActionable = (selectedUnit.role === "Apothecary" || selectedUnit.role === "Duelist");
-      let canUse = isActionable && !selectedUnit.acted && !selectedUnit.done && !selectedUnit.staggered;
+      let canUse = !selectedUnit.acted && !selectedUnit.done && !selectedUnit.staggered;
 
-      if (!isActionable) {
-        stat.innerHTML = `<span style="color:var(--text-muted);">Cost: ${s.cost} (Automatic/Inherent)</span>`;
-        actBtn.style.display = "none";
-      } else if (canUse) {
-        stat.innerHTML = `<span style="color:var(--bloom-green);">READY &bull; Cost: ${s.cost}</span>`;
+      if (canUse) {
+        stat.innerHTML = `<span style="color:var(--bloom-green);">READY &bull; Cost: ${s.cost} Fatigue</span>`;
         actBtn.style.display = "block";
         actBtn.onclick = () => {
-          actionMode = 'SKILL';
-          log(`${selectedUnit.name}: Select target within skill range (2 tiles).`);
           dlg.style.display = "none";
+          if (s.type === "self") {
+            executeSkillSelf(selectedUnit);
+          } else {
+            actionMode = 'SKILL_TARGET';
+            log(`${selectedUnit.name}: Select valid target tile for ${s.name}.`);
+          }
         };
       } else {
-        stat.innerHTML = `<span style="color:var(--enemy-red);">UNAVAILABLE (Already acted or fatigued this turn)</span>`;
+        stat.innerHTML = `<span style="color:var(--enemy-red);">UNAVAILABLE (Unit exhausted, staggered, or acted)</span>`;
         actBtn.style.display = "none";
       }
 
@@ -1358,7 +1475,7 @@
         selectedUnit.fatigue = Math.max(0, selectedUnit.fatigue - 3.0);
         selectedUnit.acted = true;
         hideMoveModal();
-        log(`${selectedUnit.name} catches breath (-3 Fatigue).`);
+        log(`${selectedUnit.name} caught breath (-3 Fatigue).`);
         updateIntelPanel();
       }
     };
@@ -1406,7 +1523,7 @@
     updateAuras();
     render();
     playPhaseBanner("PLAYER PHASE", true, () => {
-      log("Grand Crossing deployed. Click any unit to view combined movement and threat range!");
+      log("Grand Crossing tactical engine initialized. Click any unit to inspect!");
     });
   </script>
 </body>
