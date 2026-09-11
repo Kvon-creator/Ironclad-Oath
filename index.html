@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ironclad Oath - 16-bit Tactical Web Engine</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel-bg: #161b22;
+      --panel-border: #30363d;
+      --text-main: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent-gold: #e3b341;
+      --player-blue: #58a6ff;
+      --enemy-red: #f85149;
+      --bloom-green: #56d364;
+      --ruin-gray: #484f58;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      background: var(--bg);
+      color: var(--text-main);
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+    }
+    h1 {
+      margin: 0 0 12px 0;
+      font-size: 1.25rem;
+      letter-spacing: 2px;
+      color: var(--accent-gold);
+      text-transform: uppercase;
+    }
+    #game-layout {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    #canvas-container {
+      position: relative;
+      border: 3px solid var(--panel-border);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+      background: #000;
+    }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      cursor: crosshair;
+    }
+    #sidebar {
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      padding: 12px;
+      border-radius: 4px;
+    }
+    .panel-header {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: var(--accent-gold);
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 0.8rem;
+    }
+    .bar-bg {
+      background: #21262d;
+      height: 6px;
+      width: 100%;
+      margin: 2px 0 6px 0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .bar-fill { height: 100%; transition: width 0.2s ease-out; }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    button {
+      background: #21262d;
+      color: var(--text-main);
+      border: 1px solid var(--panel-border);
+      padding: 8px;
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: all 0.1s;
+    }
+    button:hover:not(:disabled) {
+      background: #30363d;
+      border-color: var(--accent-gold);
+      color: #fff;
+    }
+    button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .direction-pad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      max-width: 140px;
+      margin: 8px auto 0 auto;
+    }
+    .direction-pad button { padding: 6px; }
+    #log-stream {
+      height: 140px;
+      overflow-y: auto;
+      font-size: 0.72rem;
+      line-height: 1.3;
+      background: #0d1117;
+      padding: 6px;
+      border: 1px solid var(--panel-border);
+      border-radius: 2px;
+    }
+    #forecast-modal {
+      display: none;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(22, 27, 34, 0.95);
+      border: 2px solid var(--accent-gold);
+      padding: 10px;
+      font-size: 0.75rem;
+      z-index: 10;
+      width: 240px;
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-block;
+      padding: 1px 4px;
+      font-size: 0.65rem;
+      border-radius: 2px;
+      font-weight: bold;
+      margin-right: 4px;
+    }
+    .badge-formation { background: #1f6feb; color: #fff; }
+    .badge-bloom { background: #238636; color: #fff; }
+    .badge-stagger { background: #da3633; color: #fff; }
+  </style>
+</head>
+<body>
+
+  <h1>Ironclad Oath: Tactical Core</h1>
+
+  <div id="game-layout">
+    <div id="canvas-container">
+      <canvas id="stage" width="480" height="480"></canvas>
+      <div id="forecast-modal"></div>
+    </div>
+
+    <div id="sidebar">
+      <div class="panel">
+        <div class="panel-header">Tactical Intel</div>
+        <div id="unit-intel">Click a mercenary or enemy unit...</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">Action Deck</div>
+        <div class="btn-grid">
+          <button id="btn-move" disabled>Move</button>
+          <button id="btn-strike" disabled>Strike</button>
+          <button id="btn-rest" disabled>Rest (+3 Fat)</button>
+          <button id="btn-face" disabled>Set Facing</button>
+        </div>
+        <div id="facing-widget" style="display: none;">
+          <div style="font-size: 0.7rem; text-align: center; margin-top: 6px;">Lock Final Facing:</div>
+          <div class="direction-pad">
+            <div></div><button onclick="commitFacing('NORTH')">▲</button><div></div>
+            <button onclick="commitFacing('WEST')">◀</button><div></div><button onclick="commitFacing('EAST')">▶</button>
+            <div></div><button onclick="commitFacing('SOUTH')">▼</button><div></div>
+          </div>
+        </div>
+        <button id="btn-end-turn" style="width: 100%; margin-top: 8px; border-color: var(--accent-gold);">End Player Phase</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header">Battlefield Chronicle</div>
+        <div id="log-stream"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TILE_SIZE = 48;
+    const GRID_SIZE = 10;
+    const canvas = document.getElementById("stage");
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+
+    const DIRS = {
+      NORTH: { dx: 0, dy: -1, glyph: "^", name: "NORTH", angle: 0 },
+      EAST:  { dx: 1, dy: 0,  glyph: ">", name: "EAST", angle: Math.PI / 2 },
+      SOUTH: { dx: 0, dy: 1,  glyph: "v", name: "SOUTH", angle: Math.PI },
+      WEST:  { dx: -1, dy: 0, glyph: "<", name: "WEST", angle: (3 * Math.PI) / 2 }
+    };
+
+    const FacingMultiplier = { FRONT: 1.0, FLANK: 1.25, REAR: 1.75 };
+
+    const bloomTiles = new Set(["1,3", "1,4", "2,3", "2,4", "2,5"]);
+    const ruinTiles  = new Set(["4,4", "5,4"]);
+
+    let turnCount = 1;
+    let selectedUnit = null;
+    let actionMode = null; // 'MOVE', 'ATTACK'
+    let animationPulse = 0;
+
+    let units = [
+      // Mercenaries
+      { id: "P1", name: "Vanguard Knight", faction: "PLAYER", x: 4, y: 8, facing: DIRS.NORTH,
+        hp: 45, maxHp: 45, fatigue: 0, maxFat: 30, poise: 40, maxPoise: 40, eva: 0.10,
+        atk: 14, range: 1, poiseAtk: 15, shred: 8, shield: true, spear: false,
+        armor: { FRONT: 50, FLANK: 30, REAR: 15 },
+        moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "P2", name: "Hedge Halberdier", faction: "PLAYER", x: 5, y: 8, facing: DIRS.NORTH,
+        hp: 38, maxHp: 38, fatigue: 0, maxFat: 25, poise: 30, maxPoise: 30, eva: 0.15,
+        atk: 16, range: 2, poiseAtk: 12, shred: 10, shield: false, spear: true,
+        armor: { FRONT: 35, FLANK: 20, REAR: 10 },
+        moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "P3", name: "Outrider Scout", faction: "PLAYER", x: 6, y: 9, facing: DIRS.NORTH,
+        hp: 28, maxHp: 28, fatigue: 0, maxFat: 20, poise: 18, maxPoise: 18, eva: 0.30,
+        atk: 11, range: 3, poiseAtk: 6, shred: 3, shield: false, spear: false,
+        armor: { FRONT: 15, FLANK: 10, REAR: 5 },
+        moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      // Enemies
+      { id: "E1", name: "Footman A", faction: "ENEMY", x: 4, y: 2, facing: DIRS.SOUTH,
+        hp: 35, maxHp: 35, fatigue: 0, maxFat: 25, poise: 25, maxPoise: 25, eva: 0.15,
+        atk: 12, range: 1, poiseAtk: 10, shred: 6, shield: true, spear: false,
+        armor: { FRONT: 30, FLANK: 20, REAR: 10 },
+        staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "E2", name: "Footman B", faction: "ENEMY", x: 5, y: 2, facing: DIRS.SOUTH,
+        hp: 35, maxHp: 35, fatigue: 0, maxFat: 25, poise: 25, maxPoise: 25, eva: 0.15,
+        atk: 12, range: 1, poiseAtk: 10, shred: 6, shield: true, spear: false,
+        armor: { FRONT: 30, FLANK: 20, REAR: 10 },
+        shield: true, staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "ET", name: "Bloom Thrall", faction: "ENEMY", x: 1, y: 2, facing: DIRS.SOUTH,
+        hp: 55, maxHp: 55, fatigue: 0, maxFat: 40, poise: 60, maxPoise: 60, eva: 0.05,
+        atk: 17, range: 1, poiseAtk: 22, shred: 14, shield: false, spear: false, afflicted: true,
+        armor: { FRONT: 15, FLANK: 15, REAR: 15 },
+        staggered: false, inShieldWall: false, inSpearHedge: false }
+    ];
+
+    function log(msg) {
+      const b = document.getElementById("log-stream");
+      b.innerHTML += `<div>${msg}</div>`;
+      b.scrollTop = b.scrollHeight;
+    }
+
+    function getUnitAt(x, y) {
+      return units.find(u => u.hp > 0 && u.x === x && u.y === y);
+    }
+
+    function updateAuras() {
+      units.forEach(u => {
+        u.inShieldWall = false;
+        u.inSpearHedge = false;
+        if (u.hp <= 0) return;
+
+        for (let d of Object.values(DIRS)) {
+          let neighbor = getUnitAt(u.x + d.dx, u.y + d.dy);
+          if (neighbor && neighbor.faction === u.faction && neighbor.hp > 0) {
+            if (u.shield && neighbor.shield && neighbor.facing === u.facing) {
+              u.inShieldWall = true;
+            }
+            if (u.spear && neighbor.spear && neighbor.facing === u.facing) {
+              u.inSpearHedge = true;
+            }
+          }
+        }
+      });
+    }
+
+    function calculateFacingVector(attacker, defender) {
+      let dx = attacker.x - defender.x;
+      let dy = attacker.y - defender.y;
+      let approach = Math.abs(dx) > Math.abs(dy)
+        ? (dx > 0 ? DIRS.EAST : DIRS.WEST)
+        : (dy > 0 ? DIRS.SOUTH : DIRS.NORTH);
+
+      if (approach === defender.facing) return { angle: "FRONT", mult: 1.0, slot: "FRONT" };
+      if (approach.dx === -defender.facing.dx && approach.dy === -defender.facing.dy) return { angle: "REAR", mult: 1.75, slot: "REAR" };
+      return { angle: "FLANK", mult: 1.25, slot: "FLANK" };
+    }
+
+    function executeCombat(attacker, defender, isOpportunity = false) {
+      if (!isOpportunity) {
+        let cost = (attacker.fatigue >= attacker.maxFat) ? 6 : 4;
+        attacker.fatigue = Math.min(attacker.maxFat, attacker.fatigue + cost);
+      }
+
+      let res = calculateFacingVector(attacker, defender);
+
+      // Hit & Evasion check
+      let effectiveEva = defender.staggered || res.angle === "REAR" || defender.fatigue >= defender.maxFat
+        ? 0.0
+        : Math.max(0, defender.eva - (res.angle === "FLANK" ? 0.25 : 0.0));
+
+      if (Math.random() < effectiveEva) {
+        log(`[DODGE] <b>${defender.name}</b> evaded attack from <b>${attacker.name}</b>!`);
+        return;
+      }
+
+      // Shield Wall frontal ranged nullification
+      if (defender.inShieldWall && res.angle === "FRONT" && attacker.range > 1) {
+        log(`[SHIELD WALL] <b>${defender.name}</b> deflected projectile from <b>${attacker.name}</b>!`);
+        return;
+      }
+
+      let rawDamage = attacker.atk * res.mult;
+      let armVal = defender.armor[res.slot];
+      let unmitigated = 0;
+      let absorbed = 0;
+
+      if (res.angle === "REAR") {
+        unmitigated = (rawDamage * 0.75) + Math.max(0, (rawDamage * 0.25) - armVal);
+        absorbed = Math.min(armVal, rawDamage * 0.25);
+      } else {
+        absorbed = Math.min(armVal, rawDamage * 0.65);
+        unmitigated = Math.max(1, rawDamage - absorbed);
+      }
+
+      defender.armor[res.slot] = Math.max(0, defender.armor[res.slot] - attacker.shred);
+      defender.hp = Math.max(0, defender.hp - unmitigated);
+
+      // Poise damage & Stagger
+      if (!defender.afflicted) {
+        defender.poise = Math.max(0, defender.poise - attacker.poiseAtk);
+        if (defender.poise <= 0 && !defender.staggered) {
+          defender.staggered = true;
+          log(`<span style="color:var(--enemy-red)">** ${defender.name} is STAGGERED! **</span>`);
+        }
+      }
+
+      let tag = isOpportunity ? "[REACTION] " : "";
+      log(`${tag}<b>${attacker.name}</b> hits <b>${defender.name}</b> (${res.angle}) for ${unmitigated.toFixed(1)} DMG!`);
+
+      if (defender.hp <= 0) {
+        log(`💀 <b>${defender.name}</b> fell in battle!`);
+        if (defender.afflicted) {
+          log(`<span style="color:var(--bloom-green)">[SPORE BURST] Corruption erupted at (${defender.x}, ${defender.y})!</span>`);
+          bloomTiles.add(`${defender.x},${defender.y}`);
+        }
+      }
+
+      updateAuras();
+      updateIntelPanel();
+    }
+
+    function checkZOC(mover, fromX, fromY) {
+      for (let e of units.filter(u => u.faction !== mover.faction && u.hp > 0 && !u.staggered)) {
+        let fX = e.x + e.facing.dx;
+        let fY = e.y + e.facing.dy;
+        if (fromX === fX && fromY === fY) {
+          log(`<span style="color:var(--accent-gold)">[!] ZoC Strike: ${e.name} executes opportunity strike!</span>`);
+          executeCombat(e, mover, true);
+          if (mover.hp <= 0) return false;
+        }
+      }
+      return true;
+    }
+
+    function checkSpearHedge(mover, toX, toY) {
+      for (let e of units.filter(u => u.faction !== mover.faction && u.hp > 0 && u.inSpearHedge && !u.staggered)) {
+        let fX = e.x + e.facing.dx;
+        let fY = e.y + e.facing.dy;
+        if (toX === fX && toY === fY) {
+          log(`<span style="color:var(--accent-gold)">[!] Spear Hedge: ${e.name} intercepts charging enemy!</span>`);
+          executeCombat(e, mover, true);
+          if (mover.staggered || mover.hp <= 0) {
+            log(`Advance halted by spear brace!`);
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function applyBloomTurn() {
+      units.filter(u => u.hp > 0).forEach(u => {
+        if (bloomTiles.has(`${u.x},${u.y}`)) {
+          u.fatigue = Math.min(u.maxFat, u.fatigue + 2.0);
+          for (let k in u.armor) u.armor[k] = Math.max(0, u.armor[k] * 0.95);
+          log(`<span style="color:var(--bloom-green)">[BLOOM ROT] ${u.name} takes +2 Fatigue and 5% armor corrosion!</span>`);
+        } else {
+          u.fatigue = Math.max(0, u.fatigue - 1.0);
+        }
+      });
+    }
+
+    function runTacticalAI() {
+      let activeEnemies = units.filter(u => u.faction === "ENEMY" && u.hp > 0);
+
+      activeEnemies.forEach(enemy => {
+        if (enemy.staggered) {
+          enemy.staggered = false;
+          enemy.poise = enemy.maxPoise * 0.5;
+          log(`${enemy.name} recovered from stagger.`);
+          return;
+        }
+
+        let players = units.filter(p => p.faction === "PLAYER" && p.hp > 0);
+        if (players.length === 0) return;
+
+        if (enemy.afflicted) {
+          // Berserker AI: rushes nearest target
+          players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
+          let target = players[0];
+          let sx = target.x > enemy.x ? 1 : (target.x < enemy.x ? -1 : 0);
+          let sy = target.y > enemy.y ? 1 : (target.y < enemy.y ? -1 : 0);
+
+          let nx = enemy.x + sx;
+          let ny = enemy.y;
+          if (sx !== 0 && !getUnitAt(nx, ny) && !ruinTiles.has(`${nx},${ny}`) && checkSpearHedge(enemy, nx, ny)) {
+            enemy.x = nx;
+          } else {
+            ny = enemy.y + sy;
+            if (sy !== 0 && !getUnitAt(enemy.x, ny) && !ruinTiles.has(`${enemy.x},${ny}`) && checkSpearHedge(enemy, enemy.x, ny)) {
+              enemy.y = ny;
+            }
+          }
+          orientUnitTowards(enemy, target);
+          if (Math.abs(enemy.x - target.x) + Math.abs(enemy.y - target.y) <= enemy.range) {
+            executeCombat(enemy, target);
+          }
+        } else {
+          // Tactical AI: attempts flanking & respects Spear Hedges
+          players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
+          let target = players[0];
+
+          let bestTile = null;
+          let bestScore = -999;
+          for (let d of Object.values(DIRS)) {
+            let tx = target.x + d.dx;
+            let ty = target.y + d.dy;
+            if (tx < 0 || tx >= GRID_SIZE || ty < 0 || ty >= GRID_SIZE) continue;
+            if (ruinTiles.has(`${tx},${ty}`) || (getUnitAt(tx, ty) && !(tx === enemy.x && ty === enemy.y))) continue;
+
+            let angleRes = calculateFacingVector({x: tx, y: ty}, target);
+            let score = 10 * angleRes.mult - (Math.abs(tx - enemy.x) + Math.abs(ty - enemy.y));
+            if (target.spear && tx === target.x + target.facing.dx && ty === target.y + target.facing.dy) score -= 20;
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestTile = { x: tx, y: ty };
+            }
+          }
+
+          if (bestTile) {
+            let sx = bestTile.x > enemy.x ? 1 : (bestTile.x < enemy.x ? -1 : 0);
+            let sy = bestTile.y > enemy.y ? 1 : (bestTile.y < enemy.y ? -1 : 0);
+            let nx = enemy.x + sx;
+            if (sx !== 0 && !getUnitAt(nx, enemy.y) && !ruinTiles.has(`${nx},${enemy.y}`) && checkSpearHedge(enemy, nx, enemy.y)) {
+              enemy.x = nx;
+            } else if (sy !== 0 && !getUnitAt(enemy.x, enemy.y + sy) && !ruinTiles.has(`${enemy.x},${enemy.y + sy}`) && checkSpearHedge(enemy, enemy.x, enemy.y + sy)) {
+              enemy.y += sy;
+            }
+          }
+
+          orientUnitTowards(enemy, target);
+          if (Math.abs(enemy.x - target.x) + Math.abs(enemy.y - target.y) <= enemy.range && !enemy.staggered) {
+            executeCombat(enemy, target);
+          }
+        }
+      });
+    }
+
+    function orientUnitTowards(unit, target) {
+      let dx = target.x - unit.x;
+      let dy = target.y - unit.y;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        unit.facing = dx > 0 ? DIRS.EAST : DIRS.WEST;
+      } else if (dy !== 0) {
+        unit.facing = dy > 0 ? DIRS.SOUTH : DIRS.NORTH;
+      }
+    }
+
+    // 16-bit Procedural Pixel Sprite Renderer
+    function drawPixelUnit(u, px, py) {
+      ctx.save();
+      ctx.translate(px + TILE_SIZE/2, py + TILE_SIZE/2);
+
+      // Base shadow
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.beginPath();
+      ctx.ellipse(0, TILE_SIZE/2 - 6, 12, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Body Palette
+      let armorColor = u.faction === "PLAYER" ? "#3b5998" : (u.afflicted ? "#2d5a27" : "#8b263e");
+      let metalColor = u.faction === "PLAYER" ? "#8fa8d6" : (u.afflicted ? "#598a42" : "#c44d56");
+      let skinColor = "#d2a679";
+
+      // Torso / Plate
+      ctx.fillStyle = armorColor;
+      ctx.fillRect(-8, -8, 16, 16);
+      ctx.fillStyle = metalColor;
+      ctx.fillRect(-6, -6, 12, 12);
+
+      // Helmet / Head
+      ctx.fillStyle = metalColor;
+      ctx.fillRect(-5, -14, 10, 8);
+      ctx.fillStyle = skinColor;
+      ctx.fillRect(-3, -10, 6, 4);
+
+      // Weapon / Shield Attachments
+      if (u.shield) {
+        ctx.fillStyle = "#e3b341";
+        ctx.fillRect(-12, -6, 4, 12);
+      }
+      if (u.spear) {
+        ctx.fillStyle = "#c0c0c0";
+        ctx.fillRect(8, -18, 3, 26);
+      }
+
+      // Stagger Effect
+      if (u.staggered) {
+        ctx.fillStyle = "#f85149";
+        ctx.font = "bold 10px monospace";
+        ctx.fillText("STUN", -12, -18);
+      }
+
+      // Directional Indicator Chevron
+      ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
+      let offset = 16;
+      ctx.beginPath();
+      if (u.facing === DIRS.NORTH) { ctx.moveTo(0, -offset); ctx.lineTo(-4, -offset+5); ctx.lineTo(4, -offset+5); }
+      if (u.facing === DIRS.SOUTH) { ctx.moveTo(0, offset); ctx.lineTo(-4, offset-5); ctx.lineTo(4, offset-5); }
+      if (u.facing === DIRS.EAST)  { ctx.moveTo(offset, 0); ctx.lineTo(offset-5, -4); ctx.lineTo(offset-5, 4); }
+      if (u.facing === DIRS.WEST)  { ctx.moveTo(-offset, 0); ctx.lineTo(-offset+5, -4); ctx.lineTo(-offset+5, 4); }
+      ctx.fill();
+
+      ctx.restore();
+
+      // Mini Health and Poise Bars
+      let barW = TILE_SIZE - 12;
+      let barX = px + 6;
+      let barY = py + TILE_SIZE - 8;
+
+      ctx.fillStyle = "#21262d";
+      ctx.fillRect(barX, barY, barW, 3);
+      ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
+      ctx.fillRect(barX, barY, barW * Math.max(0, u.hp / u.maxHp), 3);
+
+      ctx.fillStyle = "#e3b341";
+      ctx.fillRect(barX, barY + 3, barW * Math.max(0, u.poise / u.maxPoise), 2);
+    }
+
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      animationPulse = (animationPulse + 0.05) % (Math.PI * 2);
+
+      // Render Map Cells
+      for (let x = 0; x < GRID_SIZE; x++) {
+        for (let y = 0; y < GRID_SIZE; y++) {
+          let px = x * TILE_SIZE;
+          let py = y * TILE_SIZE;
+          let key = `${x},${y}`;
+
+          // Ground
+          ctx.fillStyle = (x + y) % 2 === 0 ? "#1b212c" : "#161b24";
+          ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+
+          // Bloom Hazard Tiles
+          if (bloomTiles.has(key)) {
+            let pulseAlpha = 0.2 + 0.1 * Math.sin(animationPulse);
+            ctx.fillStyle = `rgba(86, 211, 100, ${pulseAlpha})`;
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = "#56d364";
+            ctx.fillRect(px + 6, py + 6, 4, 4);
+            ctx.fillRect(px + TILE_SIZE - 10, py + TILE_SIZE - 10, 5, 5);
+          }
+
+          // Stone Ruins
+          if (ruinTiles.has(key)) {
+            ctx.fillStyle = "#30363d";
+            ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+            ctx.strokeStyle = "#484f58";
+            ctx.strokeRect(px + 4, py + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+          }
+
+          // Grid Lines
+          ctx.strokeStyle = "rgba(48, 54, 61, 0.4)";
+          ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+        }
+      }
+
+      // Draw Formation Links
+      units.filter(u => u.hp > 0 && (u.inShieldWall || u.inSpearHedge)).forEach(u => {
+        for (let d of Object.values(DIRS)) {
+          let n = getUnitAt(u.x + d.dx, u.y + d.dy);
+          if (n && n.faction === u.faction && n.facing === u.facing && n.hp > 0) {
+            ctx.strokeStyle = u.inShieldWall ? "rgba(88, 166, 255, 0.6)" : "rgba(227, 179, 65, 0.6)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(u.x * TILE_SIZE + TILE_SIZE/2, u.y * TILE_SIZE + TILE_SIZE/2);
+            ctx.lineTo(n.x * TILE_SIZE + TILE_SIZE/2, n.y * TILE_SIZE + TILE_SIZE/2);
+            ctx.stroke();
+            ctx.lineWidth = 1;
+          }
+        }
+      });
+
+      // Highlight Selection and Action Ranges
+      if (selectedUnit && selectedUnit.hp > 0) {
+        let px = selectedUnit.x * TILE_SIZE;
+        let py = selectedUnit.y * TILE_SIZE;
+
+        ctx.strokeStyle = "#e3b341";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px + 1, py + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+        ctx.lineWidth = 1;
+
+        if (actionMode === 'MOVE') {
+          ctx.fillStyle = "rgba(88, 166, 255, 0.25)";
+          for (let d of Object.values(DIRS)) {
+            let tx = selectedUnit.x + d.dx;
+            let ty = selectedUnit.y + d.dy;
+            if (tx >= 0 && tx < GRID_SIZE && ty >= 0 && ty < GRID_SIZE && !getUnitAt(tx, ty) && !ruinTiles.has(`${tx},${ty}`)) {
+              ctx.fillRect(tx * TILE_SIZE + 2, ty * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+            }
+          }
+        }
+
+        if (actionMode === 'ATTACK') {
+          ctx.fillStyle = "rgba(248, 81, 73, 0.25)";
+          units.filter(e => e.faction !== selectedUnit.faction && e.hp > 0).forEach(e => {
+            let dist = Math.abs(selectedUnit.x - e.x) + Math.abs(selectedUnit.y - e.y);
+            if (dist <= selectedUnit.range) {
+              ctx.fillRect(e.x * TILE_SIZE + 2, e.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+            }
+          });
+        }
+      }
+
+      // Draw Units
+      units.filter(u => u.hp > 0).forEach(u => drawPixelUnit(u, u.x * TILE_SIZE, u.y * TILE_SIZE));
+
+      requestAnimationFrame(render);
+    }
+
+    function updateIntelPanel() {
+      const box = document.getElementById("unit-intel");
+      if (!selectedUnit || selectedUnit.hp <= 0) {
+        box.innerHTML = "Click a unit on the field to inspect.";
+        document.getElementById("btn-move").disabled = true;
+        document.getElementById("btn-strike").disabled = true;
+        document.getElementById("btn-rest").disabled = true;
+        document.getElementById("btn-face").disabled = true;
+        document.getElementById("facing-widget").style.display = "none";
+        return;
+      }
+
+      let u = selectedUnit;
+      let badges = "";
+      if (u.inShieldWall) badges += `<span class="badge badge-formation">SHIELD WALL</span>`;
+      if (u.inSpearHedge) badges += `<span class="badge badge-formation">SPEAR HEDGE</span>`;
+      if (u.staggered) badges += `<span class="badge badge-stagger">STAGGERED</span>`;
+      if (bloomTiles.has(`${u.x},${u.y}`)) badges += `<span class="badge badge-bloom">IN BLOOM</span>`;
+
+      box.innerHTML = `
+        <div style="font-weight:bold; font-size:0.9rem; margin-bottom:4px; color:${u.faction==='PLAYER'?'var(--player-blue)':'var(--enemy-red)'}">
+          ${u.name} [${u.id}]
+        </div>
+        <div style="margin-bottom:6px;">${badges}</div>
+
+        <div class="stat-row"><span>Health</span><span>${u.hp.toFixed(1)} / ${u.maxHp}</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${(u.hp/u.maxHp)*100}%; background:var(--enemy-red);"></div></div>
+
+        <div class="stat-row"><span>Fatigue (Stamina)</span><span>${u.fatigue.toFixed(1)} / ${u.maxFat}</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${(u.fatigue/u.maxFat)*100}%; background:var(--player-blue);"></div></div>
+
+        <div class="stat-row"><span>Poise Pool</span><span>${u.poise.toFixed(1)} / ${u.maxPoise}</span></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${(u.poise/u.maxPoise)*100}%; background:var(--accent-gold);"></div></div>
+
+        <div style="margin-top:6px; font-size:0.75rem;">
+          Facing: <b>${u.facing.name}</b><br>
+          Armor Quadrants: Front: <b>${u.armor.FRONT.toFixed(0)}</b> | Flank: <b>${u.armor.FLANK.toFixed(0)}</b> | Rear: <b>${u.armor.REAR.toFixed(0)}</b>
+        </div>
+      `;
+
+      let canControl = (u.faction === "PLAYER" && !u.done && !u.staggered);
+      document.getElementById("btn-move").disabled = (!canControl || u.moved);
+      document.getElementById("btn-strike").disabled = (!canControl || u.acted);
+      document.getElementById("btn-rest").disabled = (!canControl || u.acted);
+      document.getElementById("btn-face").disabled = (!canControl);
+    }
+
+    function commitFacing(dirName) {
+      if (selectedUnit && selectedUnit.faction === "PLAYER" && !selectedUnit.done) {
+        selectedUnit.facing = DIRS[dirName];
+        selectedUnit.done = true;
+        document.getElementById("facing-widget").style.display = "none";
+        log(`${selectedUnit.name} braced facing ${dirName}. Turn concluded.`);
+        updateAuras();
+        updateIntelPanel();
+      }
+    }
+
+    canvas.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const gx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+      const gy = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+      const modal = document.getElementById("forecast-modal");
+
+      if (actionMode === 'ATTACK' && selectedUnit) {
+        let target = getUnitAt(gx, gy);
+        if (target && target.faction !== selectedUnit.faction) {
+          let dist = Math.abs(selectedUnit.x - target.x) + Math.abs(selectedUnit.y - target.y);
+          if (dist <= selectedUnit.range) {
+            let res = calculateFacingVector(selectedUnit, target);
+            let estRaw = selectedUnit.atk * res.mult;
+            let estArm = target.armor[res.slot];
+            let estDmg = (res.angle === "REAR") ? (estRaw * 0.75) : Math.max(1, estRaw - (estArm * 0.65));
+
+            modal.style.display = "block";
+            modal.style.left = `${e.clientX - rect.left + 15}px`;
+            modal.style.top = `${e.clientY - rect.top + 15}px`;
+            modal.innerHTML = `
+              <b>ENGAGEMENT FORECAST</b><br>
+              Vector: <b>${res.angle}</b> (${res.mult}x)<br>
+              Target Plate: <b>${res.slot}</b> (${estArm.toFixed(0)})<br>
+              Estimated DMG: <span style="color:var(--enemy-red)">${estDmg.toFixed(1)}</span><br>
+              Poise Shock: ${selectedUnit.poiseAtk}
+            `;
+            return;
+          }
+        }
+      }
+      modal.style.display = "none";
+    });
+
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const gx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
+      const gy = Math.floor((e.clientY - rect.top) / TILE_SIZE);
+
+      if (actionMode === 'MOVE' && selectedUnit) {
+        let dist = Math.abs(selectedUnit.x - gx) + Math.abs(selectedUnit.y - gy);
+        if (dist === 1 && !getUnitAt(gx, gy) && !ruinTiles.has(`${gx},${gy}`)) {
+          let oldX = selectedUnit.x;
+          let oldY = selectedUnit.y;
+
+          if (checkZOC(selectedUnit, oldX, oldY)) {
+            selectedUnit.x = gx;
+            selectedUnit.y = gy;
+            selectedUnit.fatigue += bloomTiles.has(`${gx},${gy}`) ? 2.0 : 1.0;
+            selectedUnit.moved = true;
+            log(`${selectedUnit.name} shifted position to (${gx}, ${gy}).`);
+          }
+        }
+        actionMode = null;
+        updateAuras();
+        updateIntelPanel();
+        return;
+      }
+
+      if (actionMode === 'ATTACK' && selectedUnit) {
+        let target = getUnitAt(gx, gy);
+        if (target && target.faction !== selectedUnit.faction) {
+          let dist = Math.abs(selectedUnit.x - target.x) + Math.abs(selectedUnit.y - target.y);
+          if (dist <= selectedUnit.range) {
+            executeCombat(selectedUnit, target);
+            selectedUnit.acted = true;
+          }
+        }
+        actionMode = null;
+        updateIntelPanel();
+        return;
+      }
+
+      let clicked = getUnitAt(gx, gy);
+      if (clicked) {
+        selectedUnit = clicked;
+        actionMode = null;
+        document.getElementById("facing-widget").style.display = "none";
+        updateIntelPanel();
+      }
+    });
+
+    document.getElementById("btn-move").onclick = () => {
+      actionMode = 'MOVE';
+      log("Select adjacent tile to advance.");
+    };
+
+    document.getElementById("btn-strike").onclick = () => {
+      actionMode = 'ATTACK';
+      log("Select target within engagement range.");
+    };
+
+    document.getElementById("btn-rest").onclick = () => {
+      if (selectedUnit && !selectedUnit.acted) {
+        selectedUnit.fatigue = Math.max(0, selectedUnit.fatigue - 3.0);
+        selectedUnit.acted = true;
+        log(`${selectedUnit.name} caught breath (-3 Fatigue).`);
+        updateIntelPanel();
+      }
+    };
+
+    document.getElementById("btn-face").onclick = () => {
+      document.getElementById("facing-widget").style.display = "block";
+    };
+
+    document.getElementById("btn-end-turn").onclick = () => {
+      log(`<b>--- ENEMY PHASE (Turn ${turnCount}) ---</b>`);
+      runTacticalAI();
+      applyBloomTurn();
+
+      // Refresh Player Units
+      units.filter(u => u.faction === "PLAYER" && u.hp > 0).forEach(u => {
+        if (u.staggered) {
+          u.staggered = false;
+          u.poise = u.maxPoise * 0.5;
+          log(`${u.name} shook off stagger.`);
+        }
+        u.moved = false;
+        u.acted = false;
+        u.done = false;
+      });
+
+      turnCount++;
+      log(`<b>--- PLAYER PHASE (Turn ${turnCount}) ---</b>`);
+      updateAuras();
+      updateIntelPanel();
+    };
+
+    // Kickoff
+    updateAuras();
+    render();
+    log("Tactical engine online. Command Vanguard Knight [P1] to commence.");
+  </script>
+</body>
+</html>
