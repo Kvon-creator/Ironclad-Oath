@@ -21,7 +21,7 @@ A turn-based tactical grid combat prototype inspired by classic 16-bit strategy 
    ```bash
    python3 -m http.server 8000
 3. Launch the game in your browser:
-   * GitHub Codespaces / VS Code Remote: Click the "Open in Browser" notification in the bottom-right corner,
+   * **GitHub Codespaces / VS Code Remote:** Click the **"Open in Browser"** notification in the bottom-right corner,
      or open the Ports tab next to your terminal and click the globe icon for port 8000
    * Local Machine: Open your browser and navigate to:
    ```bash
