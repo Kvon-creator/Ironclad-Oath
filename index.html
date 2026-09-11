@@ -160,7 +160,6 @@
     }
     #move-confirm-modal button { padding: 4px 10px; font-size: 0.7rem; }
     
-    /* Phase Cut-In Banner */
     #phase-banner {
       display: none;
       position: absolute;
@@ -282,50 +281,57 @@
     let pendingMoveTile = null; 
     let animationPulse = 0;
     let isBannerPlaying = false;
+    let floatingTexts = []; // { text, color, x, y, alpha, life }
 
     let units = [
-      // Mercenaries (South of River)
+      // Mercenaries (Increased Base Attacks)
       { id: "P1", name: "Vanguard Knight", faction: "PLAYER", x: 4, y: 9, facing: DIRS.NORTH,
         moveRange: 2, hp: 45, maxHp: 45, fatigue: 0, maxFat: 30, poise: 40, maxPoise: 40,
-        accuracy: 32, critChance: 0.05,
-        atk: 14, range: 1, poiseAtk: 15, shred: 8, shield: true, spear: false,
+        accuracy: 34, critChance: 0.08,
+        atk: 22, range: 1, poiseAtk: 18, shred: 12, shield: true, spear: false, isArcher: false,
         armor: { FRONT: 50, FLANK: 30, REAR: 15 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
       { id: "P2", name: "Hedge Halberdier", faction: "PLAYER", x: 5, y: 9, facing: DIRS.NORTH,
         moveRange: 3, hp: 38, maxHp: 38, fatigue: 0, maxFat: 25, poise: 30, maxPoise: 30,
-        accuracy: 38, critChance: 0.12,
-        atk: 16, range: 2, poiseAtk: 12, shred: 10, shield: false, spear: true,
+        accuracy: 40, critChance: 0.15,
+        atk: 25, range: 2, poiseAtk: 16, shred: 15, shield: false, spear: true, isArcher: false,
         armor: { FRONT: 35, FLANK: 20, REAR: 10 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
       { id: "P3", name: "Outrider Scout", faction: "PLAYER", x: 4, y: 10, facing: DIRS.NORTH,
         moveRange: 4, hp: 28, maxHp: 28, fatigue: 0, maxFat: 20, poise: 18, maxPoise: 18,
-        accuracy: 50, critChance: 0.25,
-        atk: 11, range: 3, poiseAtk: 6, shred: 3, shield: false, spear: false,
+        accuracy: 55, critChance: 0.28,
+        atk: 20, range: 3, poiseAtk: 10, shred: 8, shield: false, spear: false, isArcher: true,
         armor: { FRONT: 15, FLANK: 10, REAR: 5 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      // Hostile Forces (North of River)
+      // Hostile Forces (Increased Base Attacks)
       { id: "E1", name: "Footman A", faction: "ENEMY", x: 4, y: 2, facing: DIRS.SOUTH,
         moveRange: 2, hp: 35, maxHp: 35, fatigue: 0, maxFat: 25, poise: 25, maxPoise: 25,
-        accuracy: 30, critChance: 0.08,
-        atk: 12, range: 1, poiseAtk: 10, shred: 6, shield: true, spear: false,
+        accuracy: 32, critChance: 0.10,
+        atk: 19, range: 1, poiseAtk: 14, shred: 9, shield: true, spear: false, isArcher: false,
         armor: { FRONT: 30, FLANK: 20, REAR: 10 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
       { id: "E2", name: "Footman B", faction: "ENEMY", x: 5, y: 2, facing: DIRS.SOUTH,
         moveRange: 2, hp: 35, maxHp: 35, fatigue: 0, maxFat: 25, poise: 25, maxPoise: 25,
-        accuracy: 30, critChance: 0.08,
-        atk: 12, range: 1, poiseAtk: 10, shred: 6, shield: true, spear: false,
+        accuracy: 32, critChance: 0.10,
+        atk: 19, range: 1, poiseAtk: 14, shred: 9, shield: true, spear: false, isArcher: false,
         armor: { FRONT: 30, FLANK: 20, REAR: 10 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
         shield: true, staggered: false, inShieldWall: false, inSpearHedge: false },
 
       { id: "ET", name: "Bloom Thrall", faction: "ENEMY", x: 2, y: 2, facing: DIRS.SOUTH,
         moveRange: 3, hp: 55, maxHp: 55, fatigue: 0, maxFat: 40, poise: 60, maxPoise: 60,
-        accuracy: 24, critChance: 0.15,
-        atk: 17, range: 1, poiseAtk: 22, shred: 14, shield: false, spear: false, afflicted: true,
+        accuracy: 26, critChance: 0.18,
+        atk: 27, range: 1, poiseAtk: 26, shred: 18, shield: false, spear: false, isArcher: false, afflicted: true,
         armor: { FRONT: 15, FLANK: 15, REAR: 15 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false }
     ];
 
@@ -344,7 +350,36 @@
       return units.find(u => u.hp > 0 && u.x === x && u.y === y);
     }
 
-    // Breadth-First-Search Multi-Tile Movement Range
+    // Archer Distance Rules
+    function canUnitTarget(attacker, target) {
+      let dx = target.x - attacker.x;
+      let dy = target.y - attacker.y;
+      let absX = Math.abs(dx);
+      let absY = Math.abs(dy);
+      let manhattan = absX + absY;
+
+      if (!attacker.isArcher) {
+        return manhattan <= attacker.range;
+      }
+
+      // Archer logic:
+      // 1. Minimum 2 squares away in general
+      // 2. Can attack 1 square away IF diagonal: (NW, NE, SW, SE) => absX === 1 && absY === 1
+      if (absX === 1 && absY === 1) return true;
+      return manhattan >= 2 && manhattan <= attacker.range;
+    }
+
+    function spawnFloatingText(text, color, gx, gy) {
+      floatingTexts.push({
+        text: text,
+        color: color,
+        x: gx * TILE_SIZE + TILE_SIZE / 2,
+        y: gy * TILE_SIZE + 10,
+        alpha: 1.0,
+        life: 50
+      });
+    }
+
     function getValidMoveTiles(unit) {
       if (!unit || unit.faction !== "PLAYER" || unit.moved || unit.done || unit.staggered) return [];
 
@@ -361,10 +396,10 @@
           let ny = curr.y + d.dy;
 
           if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
-          if (isWaterTile(nx, ny)) continue; // Impassable river
+          if (isWaterTile(nx, ny)) continue;
 
           let occ = getUnitAt(nx, ny);
-          if (occ && occ.faction !== unit.faction) continue; // Blocked by foes
+          if (occ && occ.faction !== unit.faction) continue;
 
           let cost = 1;
           if (bloomTiles.has(`${nx},${ny}`) || forestTiles.has(`${nx},${ny}`)) cost = 1.5;
@@ -418,14 +453,13 @@
       return { angle: "FLANK", mult: 1.25, slot: "FLANK" };
     }
 
-    // Exponential Accuracy & Dodge Calculation
     function calculateDodgeProbability(attacker, defender, angle) {
       if (defender.staggered || angle === "REAR" || defender.fatigue >= defender.maxFat) {
         return 0.0;
       }
       let accDiff = defender.accuracy - attacker.accuracy;
       let logisticDodge = 1.0 / (1.0 + Math.exp(-accDiff / 12.0));
-      if (angle === "FLANK") logisticDodge *= 0.5; // Flank penalty
+      if (angle === "FLANK") logisticDodge *= 0.5;
       return Math.min(0.85, Math.max(0.02, logisticDodge));
     }
 
@@ -435,21 +469,50 @@
         attacker.fatigue = Math.min(attacker.maxFat, attacker.fatigue + cost);
       }
 
+      // Attacker Nudge: lunge toward target
+      let dirX = Math.sign(defender.x - attacker.x);
+      let dirY = Math.sign(defender.y - attacker.y);
+      attacker.offsetX = dirX * 10;
+      attacker.offsetY = dirY * 10;
+      setTimeout(() => { attacker.offsetX = 0; attacker.offsetY = 0; }, 160);
+
       let res = calculateFacingVector(attacker, defender);
       let dodgeChance = calculateDodgeProbability(attacker, defender, res.angle);
 
+      // Dodge Resolution
       if (Math.random() < dodgeChance) {
-        log(`[DODGE] <b>${defender.name}</b> evaded <b>${attacker.name}</b> (${(dodgeChance*100).toFixed(1)}% dodge odds)!`);
+        spawnFloatingText("MISS", "#ffffff", defender.x, defender.y);
+
+        // Defender Perpendicular Dodge Nudge
+        let perpX = -dirY;
+        let perpY = dirX;
+        defender.offsetX = perpX * 12;
+        defender.offsetY = perpY * 12;
+        setTimeout(() => { defender.offsetX = 0; defender.offsetY = 0; }, 180);
+
+        log(`[DODGE] <b>${defender.name}</b> dodged <b>${attacker.name}</b>'s strike!`);
         return;
       }
 
-      if (defender.inShieldWall && res.angle === "FRONT" && attacker.range > 1) {
-        log(`[SHIELD WALL] <b>${defender.name}</b> negated projectile from <b>${attacker.name}</b>!`);
+      if (defender.inShieldWall && res.angle === "FRONT" && (attacker.range > 1 || attacker.isArcher)) {
+        spawnFloatingText("DEFLECT", "var(--player-blue)", defender.x, defender.y);
+        log(`[SHIELD WALL] <b>${defender.name}</b> negated projectile!`);
         return;
       }
 
       let isCrit = Math.random() < attacker.critChance;
       let critMult = isCrit ? 2.0 : 1.0;
+
+      if (isCrit) {
+        spawnFloatingText("CRITICAL!", "var(--accent-gold)", defender.x, defender.y);
+      }
+
+      // Defender Hit Hurt Animation & Flash Red
+      defender.flashRedTimer = 8;
+      defender.offsetX = dirX * 8; // Knockback away
+      defender.offsetY = dirY * 8;
+      setTimeout(() => { defender.offsetX = 0; defender.offsetY = 0; }, 160);
+
       let rawDamage = attacker.atk * res.mult * critMult;
       let armVal = defender.armor[res.slot];
       let unmitigated = 0;
@@ -460,7 +523,7 @@
         absorbed = Math.min(armVal, rawDamage * 0.25);
       } else {
         absorbed = Math.min(armVal, rawDamage * 0.65);
-        unmitigated = Math.max(1, rawDamage - absorbed);
+        unmitigated = Math.max(2, rawDamage - absorbed);
       }
 
       defender.armor[res.slot] = Math.max(0, defender.armor[res.slot] - attacker.shred);
@@ -476,10 +539,10 @@
 
       let tag = isOpportunity ? "[REACTION] " : "";
       let critTag = isCrit ? "<span style='color:var(--accent-gold); font-weight:bold;'> [CRITICAL HIT!]</span>" : "";
-      log(`${tag}<b>${attacker.name}</b> strikes <b>${defender.name}</b> (${res.angle})${critTag} for ${unmitigated.toFixed(1)} DMG!`);
+      log(`${tag}<b>${attacker.name}</b> hits <b>${defender.name}</b> (${res.angle})${critTag} for ${unmitigated.toFixed(1)} DMG!`);
 
       if (defender.hp <= 0) {
-        log(`💀 <b>${defender.name}</b> fell in battle!`);
+        log(`💀 <b>${defender.name}</b> was slain!`);
         if (defender.afflicted) {
           log(`<span style="color:var(--bloom-green)">[SPORE BURST] Corruption erupted at (${defender.x}, ${defender.y})!</span>`);
           bloomTiles.add(`${defender.x},${defender.y}`);
@@ -493,7 +556,7 @@
     function checkZOC(mover, fromX, fromY) {
       for (let e of units.filter(u => u.faction !== mover.faction && u.hp > 0 && !u.staggered)) {
         if (fromX === e.x + e.facing.dx && fromY === e.y + e.facing.dy) {
-          log(`<span style="color:var(--accent-gold)">[!] ZoC Strike: ${e.name} executes opportunity strike!</span>`);
+          log(`<span style="color:var(--accent-gold)">[!] ZoC Strike: ${e.name} opportunity strike!</span>`);
           executeCombat(e, mover, true);
           if (mover.hp <= 0) return false;
         }
@@ -551,11 +614,9 @@
         players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
         let target = players[0];
 
-        // Step navigation respecting bridge crossing
         let sx = target.x > enemy.x ? 1 : (target.x < enemy.x ? -1 : 0);
         let sy = target.y > enemy.y ? 1 : (target.y < enemy.y ? -1 : 0);
 
-        // If across the river, direct toward bridge (x=4 or x=5, y=5)
         if ((enemy.y < 5 && target.y > 5) || (enemy.y > 5 && target.y < 5)) {
           let bridgeX = enemy.x <= 4 ? 4 : 5;
           sx = bridgeX > enemy.x ? 1 : (bridgeX < enemy.x ? -1 : 0);
@@ -572,7 +633,7 @@
         }
 
         orientUnitTowards(enemy, target);
-        if (Math.abs(enemy.x - target.x) + Math.abs(enemy.y - target.y) <= enemy.range && !enemy.staggered) {
+        if (canUnitTarget(enemy, target) && !enemy.staggered) {
           executeCombat(enemy, target);
         }
       });
@@ -588,26 +649,32 @@
       }
     }
 
-    // Canvas Map & Unit Painting
     function drawPixelUnit(u, px, py) {
       ctx.save();
-      ctx.translate(px + TILE_SIZE/2, py + TILE_SIZE/2);
+      // Apply kinetic nudge offsets
+      ctx.translate(px + TILE_SIZE/2 + u.offsetX, py + TILE_SIZE/2 + u.offsetY);
 
+      // Base shadow
       ctx.fillStyle = "rgba(0,0,0,0.4)";
       ctx.beginPath();
       ctx.ellipse(0, TILE_SIZE/2 - 6, 12, 6, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      let armorColor = u.faction === "PLAYER" ? "#2b4b8a" : (u.afflicted ? "#2d5a27" : "#8b263e");
-      let metalColor = u.faction === "PLAYER" ? "#6d8bc6" : (u.afflicted ? "#598a42" : "#c44d56");
+      // Red Flash when taking damage
+      let isFlashing = u.flashRedTimer > 0;
+      if (isFlashing) u.flashRedTimer--;
+
+      let armorColor = isFlashing ? "#ff2222" : (u.faction === "PLAYER" ? "#2b4b8a" : (u.afflicted ? "#2d5a27" : "#8b263e"));
+      let metalColor = isFlashing ? "#ffffff" : (u.faction === "PLAYER" ? "#6d8bc6" : (u.afflicted ? "#598a42" : "#c44d56"));
 
       ctx.fillStyle = armorColor;
       ctx.fillRect(-8, -8, 16, 16);
       ctx.fillStyle = metalColor;
       ctx.fillRect(-6, -6, 12, 12);
-      ctx.fillStyle = "#e0ac69";
+      ctx.fillStyle = isFlashing ? "#ffffff" : "#e0ac69";
       ctx.fillRect(-3, -10, 6, 4);
 
+      // Weapon types
       if (u.shield) {
         ctx.fillStyle = "#e3b341";
         ctx.fillRect(-12, -6, 4, 12);
@@ -616,6 +683,14 @@
         ctx.fillStyle = "#c0c0c0";
         ctx.fillRect(8, -18, 3, 26);
       }
+      if (u.isArcher) {
+        ctx.strokeStyle = "#8b5a2b";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(8, 0, 8, -Math.PI / 2, Math.PI / 2);
+        ctx.stroke();
+      }
+
       if (u.staggered) {
         ctx.fillStyle = "#f85149";
         ctx.font = "bold 10px monospace";
@@ -636,9 +711,9 @@
       // Mini Health Bars
       let barW = TILE_SIZE - 12;
       ctx.fillStyle = "#21262d";
-      ctx.fillRect(px + 6, py + TILE_SIZE - 8, barW, 3);
+      ctx.fillRect(px + 6 + u.offsetX, py + TILE_SIZE - 8 + u.offsetY, barW, 3);
       ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
-      ctx.fillRect(px + 6, py + TILE_SIZE - 8, barW * Math.max(0, u.hp / u.maxHp), 3);
+      ctx.fillRect(px + 6 + u.offsetX, py + TILE_SIZE - 8 + u.offsetY, barW * Math.max(0, u.hp / u.maxHp), 3);
     }
 
     function render() {
@@ -651,30 +726,28 @@
           let py = y * TILE_SIZE;
           let key = `${x},${y}`;
 
-          // Ground Plating
           if (roadTiles.has(key)) {
-            ctx.fillStyle = "#a89f81"; // Dirt / stone path
+            ctx.fillStyle = "#a89f81";
           } else {
-            ctx.fillStyle = (x + y) % 2 === 0 ? "#5a7a38" : "#4e6d2e"; // Grassland
+            ctx.fillStyle = (x + y) % 2 === 0 ? "#5a7a38" : "#4e6d2e";
           }
           ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
           // River & Bridge
           if (y === 5) {
             if (bridgeTiles.has(key)) {
-              ctx.fillStyle = "#8a5836"; // Wooden Bridge Planks
+              ctx.fillStyle = "#8a5836";
               ctx.fillRect(px, py + 4, TILE_SIZE, TILE_SIZE - 8);
               ctx.strokeStyle = "#4a2a12";
               ctx.strokeRect(px, py + 4, TILE_SIZE, TILE_SIZE - 8);
             } else {
-              ctx.fillStyle = "#245070"; // Water River
+              ctx.fillStyle = "#245070";
               ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
               ctx.fillStyle = "rgba(255,255,255,0.2)";
               ctx.fillRect(px, py + 12 + Math.sin(animationPulse + x)*3, TILE_SIZE, 4);
             }
           }
 
-          // Foliage & Thickets
           if (forestTiles.has(key) && y !== 5) {
             ctx.fillStyle = "#284a1e";
             ctx.beginPath();
@@ -682,7 +755,6 @@
             ctx.fill();
           }
 
-          // Bloom Corruption
           if (bloomTiles.has(key)) {
             let pulseAlpha = 0.3 + 0.15 * Math.sin(animationPulse);
             ctx.fillStyle = `rgba(86, 211, 100, ${pulseAlpha})`;
@@ -694,7 +766,7 @@
         }
       }
 
-      // Unit Movement Overlays
+      // Valid Movement Highlighting
       if (selectedUnit && selectedUnit.hp > 0 && actionMode !== 'ATTACK') {
         let validMoves = getValidMoveTiles(selectedUnit);
         let movePulse = 0.25 + 0.1 * Math.sin(animationPulse * 2);
@@ -706,19 +778,37 @@
         });
       }
 
-      // Target Highlights
+      // Attack Targeting Highlighting
       if (selectedUnit && actionMode === 'ATTACK') {
         ctx.fillStyle = "rgba(248, 81, 73, 0.25)";
         units.filter(e => e.faction !== selectedUnit.faction && e.hp > 0).forEach(e => {
-          let dist = Math.abs(selectedUnit.x - e.x) + Math.abs(selectedUnit.y - e.y);
-          if (dist <= selectedUnit.range) {
+          if (canUnitTarget(selectedUnit, e)) {
             ctx.fillRect(e.x * TILE_SIZE + 2, e.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
           }
         });
       }
 
-      // Render Units
+      // Units Render
       units.filter(u => u.hp > 0).forEach(u => drawPixelUnit(u, u.x * TILE_SIZE, u.y * TILE_SIZE));
+
+      // Floating Combat Text Pipeline (Miss, Critical)
+      for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        let ft = floatingTexts[i];
+        ctx.save();
+        ctx.globalAlpha = ft.alpha;
+        ctx.fillStyle = ft.color;
+        ctx.font = "bold 13px 'Courier New', monospace";
+        ctx.textAlign = "center";
+        ctx.shadowColor = "#000";
+        ctx.shadowBlur = 4;
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+
+        ft.y -= 0.6;
+        ft.life--;
+        ft.alpha = ft.life / 50;
+        if (ft.life <= 0) floatingTexts.splice(i, 1);
+      }
 
       requestAnimationFrame(render);
     }
@@ -751,7 +841,8 @@
         <div class="stat-row"><span>Fatigue</span><span>${u.fatigue.toFixed(1)} / ${u.maxFat}</span></div>
         <div class="bar-bg"><div class="bar-fill" style="width:${(u.fatigue/u.maxFat)*100}%; background:var(--player-blue);"></div></div>
         <div style="margin-top:6px; font-size:0.75rem;">
-          Move: <b>${u.moveRange} tiles</b> | Accuracy: <b>${u.accuracy}</b><br>
+          Atk Power: <b>${u.atk}</b> | Range: <b>${u.isArcher ? '2-3 (or diag 1)' : u.range}</b><br>
+          Move: <b>${u.moveRange}</b> | Accuracy: <b>${u.accuracy}</b><br>
           Crit: <b>${(u.critChance*100).toFixed(0)}% (2.0x DMG)</b> | Facing: <b>${u.facing.name}</b><br>
           Armor: F:<b>${u.armor.FRONT}</b> S:<b>${u.armor.FLANK}</b> R:<b>${u.armor.REAR}</b>
         </div>
@@ -774,7 +865,7 @@
         selectedUnit.done = true;
         document.getElementById("facing-widget").style.display = "none";
         hideMoveModal();
-        log(`${selectedUnit.name} locked stance facing ${dirName}.`);
+        log(`${selectedUnit.name} braced facing ${dirName}.`);
         updateAuras();
         updateIntelPanel();
       }
@@ -789,7 +880,7 @@
           selectedUnit.y = pendingMoveTile.y;
           selectedUnit.fatigue += bloomTiles.has(`${selectedUnit.x},${selectedUnit.y}`) ? 2.0 : 1.0;
           selectedUnit.moved = true;
-          log(`${selectedUnit.name} moved across coordinates to (${selectedUnit.x}, ${selectedUnit.y}).`);
+          log(`${selectedUnit.name} moved to (${selectedUnit.x}, ${selectedUnit.y}).`);
         }
       }
       hideMoveModal();
@@ -807,25 +898,22 @@
 
       if (actionMode === 'ATTACK' && selectedUnit) {
         let target = getUnitAt(gx, gy);
-        if (target && target.faction !== selectedUnit.faction) {
-          let dist = Math.abs(selectedUnit.x - target.x) + Math.abs(selectedUnit.y - target.y);
-          if (dist <= selectedUnit.range) {
-            let res = calculateFacingVector(selectedUnit, target);
-            let estDmg = Math.max(1, (selectedUnit.atk * res.mult) - (target.armor[res.slot] * 0.65));
-            let dodgeOdds = calculateDodgeProbability(selectedUnit, target, res.angle);
+        if (target && target.faction !== selectedUnit.faction && canUnitTarget(selectedUnit, target)) {
+          let res = calculateFacingVector(selectedUnit, target);
+          let estDmg = Math.max(2, (selectedUnit.atk * res.mult) - (target.armor[res.slot] * 0.65));
+          let dodgeOdds = calculateDodgeProbability(selectedUnit, target, res.angle);
 
-            modal.style.display = "block";
-            modal.style.left = `${e.clientX - rect.left + 15}px`;
-            modal.style.top = `${e.clientY - rect.top + 15}px`;
-            modal.innerHTML = `
-              <b>FORECAST: ${selectedUnit.name}</b><br>
-              Vector: <b>${res.angle}</b> (${res.mult}x)<br>
-              Dodge Odds: <b>${(dodgeOdds*100).toFixed(1)}%</b><br>
-              Crit Chance: <b>${(selectedUnit.critChance*100).toFixed(0)}% (2x)</b><br>
-              Est. Hit Damage: <span style="color:var(--enemy-red)">${estDmg.toFixed(1)}</span>
-            `;
-            return;
-          }
+          modal.style.display = "block";
+          modal.style.left = `${e.clientX - rect.left + 15}px`;
+          modal.style.top = `${e.clientY - rect.top + 15}px`;
+          modal.innerHTML = `
+            <b>FORECAST: ${selectedUnit.name}</b><br>
+            Vector: <b>${res.angle}</b> (${res.mult}x)<br>
+            Dodge Odds: <b>${(dodgeOdds*100).toFixed(1)}%</b><br>
+            Crit Chance: <b>${(selectedUnit.critChance*100).toFixed(0)}% (2.0x)</b><br>
+            Est. Hit Damage: <span style="color:var(--enemy-red)">${estDmg.toFixed(1)}</span>
+          `;
+          return;
         }
       }
       modal.style.display = "none";
@@ -839,19 +927,15 @@
 
       if (actionMode === 'ATTACK' && selectedUnit) {
         let target = getUnitAt(gx, gy);
-        if (target && target.faction !== selectedUnit.faction) {
-          let dist = Math.abs(selectedUnit.x - target.x) + Math.abs(selectedUnit.y - target.y);
-          if (dist <= selectedUnit.range) {
-            executeCombat(selectedUnit, target);
-            selectedUnit.acted = true;
-          }
+        if (target && target.faction !== selectedUnit.faction && canUnitTarget(selectedUnit, target)) {
+          executeCombat(selectedUnit, target);
+          selectedUnit.acted = true;
         }
         actionMode = null;
         updateIntelPanel();
         return;
       }
 
-      // Check valid movement click
       if (selectedUnit && selectedUnit.faction === "PLAYER" && !selectedUnit.moved && !selectedUnit.done) {
         let validMoves = getValidMoveTiles(selectedUnit);
         let clickedMove = validMoves.find(t => t.x === gx && t.y === gy);
@@ -907,7 +991,6 @@
       playPhaseBanner("ENEMY PHASE", false, () => {
         runTacticalAI();
 
-        // Environmental Pulse
         units.filter(u => u.hp > 0).forEach(u => {
           if (bloomTiles.has(`${u.x},${u.y}`)) {
             u.fatigue = Math.min(u.maxFat, u.fatigue + 2.0);
@@ -935,7 +1018,6 @@
       });
     };
 
-    // Initial Launch
     updateAuras();
     render();
     playPhaseBanner("PLAYER PHASE", true, () => {
