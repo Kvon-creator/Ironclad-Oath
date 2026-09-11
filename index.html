@@ -193,6 +193,31 @@
     .phase-blue { background: linear-gradient(90deg, transparent, rgba(31, 111, 235, 0.92) 20%, rgba(31, 111, 235, 0.92) 80%, transparent); color: #fff; }
     .phase-red  { background: linear-gradient(90deg, transparent, rgba(218, 54, 51, 0.92) 20%, rgba(218, 54, 51, 0.92) 80%, transparent); color: #fff; }
 
+    /* End Screen Modal */
+    #endscreen-modal {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(13, 17, 23, 0.88);
+      z-index: 50;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #endscreen-title {
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: 6px;
+      margin-bottom: 16px;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.9);
+    }
+    .endscreen-victory { color: var(--accent-gold); }
+    .endscreen-defeat  { color: var(--enemy-red); }
+
     .badge {
       display: inline-block;
       padding: 1px 4px;
@@ -224,6 +249,11 @@
         </div>
       </div>
       <div id="phase-banner"></div>
+
+      <div id="endscreen-modal">
+        <div id="endscreen-title"></div>
+        <button id="btn-restart" style="padding: 10px 24px; font-size: 0.9rem; border-color: var(--accent-gold);">Restart Battle</button>
+      </div>
     </div>
 
     <div id="sidebar">
@@ -300,20 +330,22 @@
 
     let turnCount = 1;
     let selectedUnit = null;
-    let actionMode = null; // 'ATTACK' or specific skill name
+    let actionMode = null; 
     let pendingMoveTile = null; 
     let animationPulse = 0;
     let isBannerPlaying = false;
     let isEnemyPhaseActive = false;
     let isMovingAnimationActive = false;
+    let isGameOver = false;
     let floatingTexts = [];
+    let fireHazards = []; // { x, y, turnsLeft }
 
     const SKILL_DATA = {
-      "Vanguard":   { name: "Iron Bastion", desc: "Bolsters frontal plate by +15, locks Shield Wall, and halves all frontal kinetic impact.", cost: 3, type: "self" },
+      "Vanguard":   { name: "Iron Bastion", desc: "Bolsters frontal plate by +15, locks Shield Wall, and halves frontal damage.", cost: 3, type: "self" },
       "Halberdier": { name: "Spear Hedge", desc: "Braces weapon directly forward, executing reaction attacks to interrupt advancing foes.", cost: 2, type: "self" },
       "Archer":     { name: "Dead-Eye Volley", desc: "Sniper arrow (Range 3-4) ignoring target obstacle cover and forest evasion buffs.", cost: 5, type: "target_enemy", minR: 3, maxR: 4 },
       "Flyer":      { name: "Dive Bomb", desc: "Aerial descent strike from 2 tiles away dealing 2x Poise shock.", cost: 5, type: "target_enemy", minR: 2, maxR: 2 },
-      "Pyromancer": { name: "Ignite Ground", desc: "Incinerates target tile up to 3 tiles away, clearing Bloom spores and damaging all inside.", cost: 6, type: "target_tile", minR: 1, maxR: 3 },
+      "Pyromancer": { name: "Ignite Ground", desc: "Scorches a cross pattern (center + 4 cardinal tiles) leaving lingering flames for 3 turns.", cost: 6, type: "target_tile", minR: 1, maxR: 3 },
       "Warden":     { name: "Momentum Cleave", desc: "Cleaves all three tiles directly in front with a sweeping claymore swing.", cost: 5, type: "self" },
       "Apothecary": { name: "Field Triage", desc: "Restores +18 HP, purges 10 Fatigue, and cures Stagger on an adjacent ally.", cost: 4, type: "target_ally", minR: 1, maxR: 1 },
       "Duelist":    { name: "Hook & Drag", desc: "Grapples an enemy 2 tiles away, yanking them adjacent and spinning their unarmored rear toward you.", cost: 5, type: "target_enemy", minR: 2, maxR: 2 },
@@ -379,7 +411,7 @@
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
       { id: "P8", name: "Hook-Chain Duelist", role: "Duelist", faction: "PLAYER", x: 10, y: 12, renderX: 10, renderY: 12, facing: DIRS.NORTH,
-        moveRange: 3, hp: 35, maxHp: 35, fatigue: 0, maxFat: 28, poise: 22, maxPoise: 22, // Rebalanced moveRange: 3
+        moveRange: 3, hp: 35, maxHp: 35, fatigue: 0, maxFat: 28, poise: 22, maxPoise: 22,
         accuracy: 62, critChance: 0.32, atk: 24, range: 2, poiseAtk: 16, shred: 12,
         shield: false, spear: false, isArcher: false, isFlying: false,
         armor: { FRONT: 18, FLANK: 14, REAR: 8 },
@@ -518,7 +550,33 @@
       });
     }
 
-    // Shortest Path Finding (Breadth-First Search)
+    function checkBattleOutcome() {
+      if (isGameOver) return;
+      let playersAlive = units.filter(u => u.faction === "PLAYER" && u.hp > 0).length;
+      let enemiesAlive = units.filter(u => u.faction === "ENEMY" && u.hp > 0).length;
+
+      if (enemiesAlive === 0) {
+        isGameOver = true;
+        showEndScreen("VICTORY", true);
+      } else if (playersAlive === 0) {
+        isGameOver = true;
+        showEndScreen("DEFEAT", false);
+      }
+    }
+
+    function showEndScreen(title, isVictory) {
+      const modal = document.getElementById("endscreen-modal");
+      const titleElem = document.getElementById("endscreen-title");
+      titleElem.textContent = title;
+      titleElem.className = isVictory ? "endscreen-victory" : "endscreen-defeat";
+      modal.style.display = "flex";
+      log(`<b>--- BATTLE CONCLUDED: ${title} ---</b>`);
+    }
+
+    document.getElementById("btn-restart").onclick = () => {
+      window.location.reload();
+    };
+
     function findShortestPath(unit, targetX, targetY) {
       let queue = [{ x: unit.x, y: unit.y, path: [] }];
       let visited = new Set([`${unit.x},${unit.y}`]);
@@ -548,7 +606,6 @@
       return [{ x: targetX, y: targetY }];
     }
 
-    // Smooth Tile-by-Tile Animated Unit Movement
     async function animateUnitMovement(unit, targetX, targetY) {
       isMovingAnimationActive = true;
       let path = findShortestPath(unit, targetX, targetY);
@@ -557,18 +614,15 @@
         let oldX = unit.x;
         let oldY = unit.y;
 
-        // Check Zone of Control before leaving tile
         if (!checkZOC(unit, oldX, oldY)) {
           isMovingAnimationActive = false;
           return false;
         }
 
-        // Animated sub-tile interpolation
         let frames = 8;
         let dx = (step.x - unit.renderX) / frames;
         let dy = (step.y - unit.renderY) / frames;
 
-        // Orient facing toward the step
         if (step.x > unit.x) unit.facing = DIRS.EAST;
         else if (step.x < unit.x) unit.facing = DIRS.WEST;
         else if (step.y > unit.y) unit.facing = DIRS.SOUTH;
@@ -589,7 +643,6 @@
           unit.fatigue += isInsideBloomAura(unit.x, unit.y) ? 2.0 : 1.0;
         }
 
-        // Spear Hedge Reaction Check
         if (!checkSpearHedge(unit, unit.x, unit.y)) {
           isMovingAnimationActive = false;
           return false;
@@ -791,6 +844,7 @@
 
       updateAuras();
       updateIntelPanel();
+      checkBattleOutcome();
     }
 
     function checkZOC(mover, fromX, fromY) {
@@ -815,7 +869,6 @@
       return true;
     }
 
-    // Activated Player Class Skills
     function executeSkillSelf(u) {
       let s = SKILL_DATA[u.role];
       u.fatigue = Math.min(u.maxFat, u.fatigue + s.cost);
@@ -832,7 +885,6 @@
         log(`<b>${u.name}</b> leveled halberd forward, setting reaction hedge!`);
       } else if (u.role === "Warden") {
         spawnFloatingText("CLEAVE!", "var(--accent-gold)", u.x, u.y);
-        // Cleave 3 tiles directly forward
         let f = u.facing;
         let hitTiles = [];
         if (f === DIRS.NORTH || f === DIRS.SOUTH) {
@@ -865,6 +917,7 @@
 
       updateAuras();
       updateIntelPanel();
+      checkBattleOutcome();
     }
 
     function executeSkillTarget(actor, targetX, targetY) {
@@ -888,13 +941,36 @@
         victim.flashRedTimer = 8;
         log(`Skyguard dive-bombed <b>${victim.name}</b> inflicting heavy Poise shock!`);
       } else if (actor.role === "Pyromancer") {
-        spawnFloatingText("BLAST!", "var(--enemy-red)", targetX, targetY);
-        // Scorch tile & clear Bloom aura
-        if (victim) {
-          victim.hp = Math.max(0, victim.hp - 32);
-          victim.flashRedTimer = 8;
-          log(`Pyromancer incinerated <b>${victim.name}</b> for 32 Fire DMG!`);
-        }
+        // Cross Pattern AoE (center + 4 cardinal tiles)
+        let aoeTiles = [
+          { x: targetX, y: targetY },
+          { x: targetX, y: targetY - 1 },
+          { x: targetX + 1, y: targetY },
+          { x: targetX, y: targetY + 1 },
+          { x: targetX - 1, y: targetY }
+        ];
+
+        aoeTiles.forEach(t => {
+          if (t.x >= 0 && t.x < COLS && t.y >= 0 && t.y < ROWS && !isWaterTile(t.x, t.y)) {
+            spawnFloatingText("IGNITE!", "var(--enemy-red)", t.x, t.y);
+
+            // Add lingering fire hazard for 3 turns
+            let existing = fireHazards.find(f => f.x === t.x && f.y === t.y);
+            if (existing) {
+              existing.turnsLeft = 3;
+            } else {
+              fireHazards.push({ x: t.x, y: t.y, turnsLeft: 3 });
+            }
+
+            let occupant = getUnitAt(t.x, t.y);
+            if (occupant) {
+              let dmg = (t.x === targetX && t.y === targetY) ? 30 : 18;
+              occupant.hp = Math.max(0, occupant.hp - dmg);
+              occupant.flashRedTimer = 8;
+              log(`Flames engulfed <b>${occupant.name}</b> at (${t.x}, ${t.y}) for ${dmg} Fire DMG!`);
+            }
+          }
+        });
       } else if (actor.role === "Apothecary" && victim) {
         victim.hp = Math.min(victim.maxHp, victim.hp + 18);
         victim.fatigue = Math.max(0, victim.fatigue - 10);
@@ -920,6 +996,7 @@
 
       updateAuras();
       updateIntelPanel();
+      checkBattleOutcome();
     }
 
     function playPhaseBanner(title, isPlayer, callback) {
@@ -951,13 +1028,12 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // Aggressive Multi-Step Sequential Enemy AI
     async function runTacticalAISequential() {
       isEnemyPhaseActive = true;
       let activeEnemies = units.filter(u => u.faction === "ENEMY" && u.hp > 0);
 
       for (let enemy of activeEnemies) {
-        if (enemy.hp <= 0) continue;
+        if (enemy.hp <= 0 || isGameOver) continue;
 
         if (enemy.staggered) {
           enemy.staggered = false;
@@ -972,7 +1048,6 @@
         players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
         let target = players[0];
 
-        // Pick best accessible tile that gets closest to target up to full moveRange
         let reachable = getReachableTilesForUnit(enemy);
         let bestTile = { x: enemy.x, y: enemy.y };
         let minDist = Math.abs(enemy.x - target.x) + Math.abs(enemy.y - target.y);
@@ -999,6 +1074,7 @@
         }
       }
       isEnemyPhaseActive = false;
+      checkBattleOutcome();
     }
 
     function orientUnitTowards(unit, target) {
@@ -1137,7 +1213,7 @@
 
       let thrall = units.find(u => u.id === "ET" && u.hp > 0);
 
-      // Render Map Cells
+      // Render Terrain
       for (let x = 0; x < COLS; x++) {
         for (let y = 0; y < ROWS; y++) {
           let px = x * TILE_SIZE;
@@ -1177,10 +1253,21 @@
             ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
           }
 
+          // Bloom Spore Aura
           if (thrall && Math.abs(thrall.x - x) <= 1 && Math.abs(thrall.y - y) <= 1) {
             let pulseAlpha = 0.28 + 0.12 * Math.sin(animationPulse + (x+y));
             ctx.fillStyle = `rgba(86, 211, 100, ${pulseAlpha})`;
             ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+          }
+
+          // Lingering Fire Hazards
+          let fire = fireHazards.find(f => f.x === x && f.y === y);
+          if (fire) {
+            let fireAlpha = 0.45 + 0.2 * Math.sin(animationPulse * 6 + (x * 3 + y));
+            ctx.fillStyle = `rgba(248, 81, 73, ${fireAlpha})`;
+            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+            ctx.fillStyle = "#e3b341";
+            ctx.fillRect(px + TILE_SIZE/2 - 3, py + TILE_SIZE/2 - 3 + Math.sin(animationPulse * 8)*2, 6, 6);
           }
 
           ctx.strokeStyle = "rgba(0, 0, 0, 0.12)";
@@ -1188,7 +1275,7 @@
         }
       }
 
-      // Combined Reach / Action Overlays
+      // Range Highlights
       if (selectedUnit && selectedUnit.hp > 0 && !actionMode && !isEnemyPhaseActive && !isMovingAnimationActive) {
         let reach = getCombinedReach(selectedUnit);
 
@@ -1228,14 +1315,14 @@
         }
       }
 
-      // Render Units at their interpolated coordinates
+      // Render Units
       units.filter(u => u.hp > 0).forEach(u => {
         let renderX = (u.renderX !== undefined) ? u.renderX : u.x;
         let renderY = (u.renderY !== undefined) ? u.renderY : u.y;
         drawPixelUnit(u, renderX * TILE_SIZE, renderY * TILE_SIZE);
       });
 
-      // Floating Combat Texts
+      // Floating Texts
       for (let i = floatingTexts.length - 1; i >= 0; i--) {
         let ft = floatingTexts[i];
         ctx.save();
@@ -1297,7 +1384,7 @@
         </div>
       `;
 
-      let canAct = (u.faction === "PLAYER" && !u.done && !u.staggered && !isBannerPlaying && !isEnemyPhaseActive && !isMovingAnimationActive);
+      let canAct = (u.faction === "PLAYER" && !u.done && !u.staggered && !isBannerPlaying && !isEnemyPhaseActive && !isMovingAnimationActive && !isGameOver);
       document.getElementById("btn-strike").disabled = (!canAct || u.acted);
       document.getElementById("btn-skill").disabled = (u.faction !== "PLAYER");
       document.getElementById("btn-rest").disabled = (!canAct || u.acted);
@@ -1334,12 +1421,13 @@
       }
       updateAuras();
       updateIntelPanel();
+      checkBattleOutcome();
     };
 
     document.getElementById("btn-cancel-move").onclick = hideMoveModal;
 
     canvas.addEventListener("mousemove", (e) => {
-      if (isEnemyPhaseActive || isMovingAnimationActive) return;
+      if (isEnemyPhaseActive || isMovingAnimationActive || isGameOver) return;
       const rect = canvas.getBoundingClientRect();
       const gx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
       const gy = Math.floor((e.clientY - rect.top) / TILE_SIZE);
@@ -1369,7 +1457,7 @@
     });
 
     canvas.addEventListener("click", (e) => {
-      if (isBannerPlaying || isEnemyPhaseActive || isMovingAnimationActive) return;
+      if (isBannerPlaying || isEnemyPhaseActive || isMovingAnimationActive || isGameOver) return;
       const rect = canvas.getBoundingClientRect();
       const gx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
       const gy = Math.floor((e.clientY - rect.top) / TILE_SIZE);
@@ -1396,7 +1484,6 @@
         return;
       }
 
-      // Check valid movement click for player unit
       if (selectedUnit && selectedUnit.faction === "PLAYER" && !selectedUnit.moved && !selectedUnit.done) {
         let reach = getCombinedReach(selectedUnit);
         let clickedMove = reach.moveTiles.find(t => t.x === gx && t.y === gy && !(t.x === selectedUnit.x && t.y === selectedUnit.y));
@@ -1414,7 +1501,6 @@
         }
       }
 
-      // Default: Inspect any unit
       let clicked = getUnitAt(gx, gy);
       if (clicked) {
         selectedUnit = clicked;
@@ -1459,7 +1545,7 @@
             executeSkillSelf(selectedUnit);
           } else {
             actionMode = 'SKILL_TARGET';
-            log(`${selectedUnit.name}: Select valid target tile for ${s.name}.`);
+            log(`${selectedUnit.name}: Select target tile for ${s.name}.`);
           }
         };
       } else {
@@ -1492,6 +1578,7 @@
       playPhaseBanner("ENEMY PHASE", false, async () => {
         await runTacticalAISequential();
 
+        // 1. Spore Aura exposure
         units.filter(u => u.hp > 0).forEach(u => {
           if (isInsideBloomAura(u.x, u.y) && !u.isGrafted) {
             u.fatigue = Math.min(u.maxFat, u.fatigue + 2.0);
@@ -1502,28 +1589,48 @@
           }
         });
 
+        // 2. Lingering Fire Hazard ticks
+        for (let i = fireHazards.length - 1; i >= 0; i--) {
+          let fh = fireHazards[i];
+          let occupant = getUnitAt(fh.x, fh.y);
+          if (occupant) {
+            occupant.hp = Math.max(0, occupant.hp - 8);
+            occupant.flashRedTimer = 6;
+            spawnFloatingText("-8 HP", "var(--enemy-red)", fh.x, fh.y);
+            log(`Lingering flames burned <b>${occupant.name}</b> at (${fh.x}, ${fh.y}) for 8 DMG!`);
+          }
+          fh.turnsLeft--;
+          if (fh.turnsLeft <= 0) {
+            fireHazards.splice(i, 1);
+          }
+        }
+
         turnCount++;
-        playPhaseBanner("PLAYER PHASE", true, () => {
-          units.filter(u => u.faction === "PLAYER" && u.hp > 0).forEach(u => {
-            u.moved = false;
-            u.acted = false;
-            u.done = false;
-            if (u.staggered) {
-              u.staggered = false;
-              u.poise = u.maxPoise * 0.5;
-            }
+        checkBattleOutcome();
+
+        if (!isGameOver) {
+          playPhaseBanner("PLAYER PHASE", true, () => {
+            units.filter(u => u.faction === "PLAYER" && u.hp > 0).forEach(u => {
+              u.moved = false;
+              u.acted = false;
+              u.done = false;
+              if (u.staggered) {
+                u.staggered = false;
+                u.poise = u.maxPoise * 0.5;
+              }
+            });
+            document.getElementById("btn-end-turn").disabled = false;
+            updateAuras();
+            updateIntelPanel();
           });
-          document.getElementById("btn-end-turn").disabled = false;
-          updateAuras();
-          updateIntelPanel();
-        });
+        }
       });
     };
 
     updateAuras();
     render();
     playPhaseBanner("PLAYER PHASE", true, () => {
-      log("Grand Crossing tactical engine initialized. Click any unit to inspect!");
+      log("Grand Crossing tactical engine initialized. Pyromancer AoE & win conditions active!");
     });
   </script>
 </body>
