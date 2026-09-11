@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Ironclad Oath - Tactical River Crossing</title>
+  <title>Ironclad Oath - Expanded Battlefield</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -17,7 +17,7 @@
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 16px;
+      padding: 12px;
       background: var(--bg);
       color: var(--text-main);
       font-family: 'Courier New', Courier, monospace;
@@ -27,8 +27,8 @@
       user-select: none;
     }
     h1 {
-      margin: 0 0 12px 0;
-      font-size: 1.25rem;
+      margin: 0 0 8px 0;
+      font-size: 1.2rem;
       letter-spacing: 2px;
       color: var(--accent-gold);
       text-transform: uppercase;
@@ -51,15 +51,15 @@
       cursor: crosshair;
     }
     #sidebar {
-      width: 320px;
+      width: 340px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
     .panel {
       background: var(--panel-bg);
       border: 1px solid var(--panel-border);
-      padding: 12px;
+      padding: 10px;
       border-radius: 4px;
     }
     .panel-header {
@@ -68,21 +68,21 @@
       color: var(--accent-gold);
       border-bottom: 1px solid var(--panel-border);
       padding-bottom: 4px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
     .stat-row {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 4px;
-      font-size: 0.8rem;
+      margin-bottom: 3px;
+      font-size: 0.78rem;
     }
     .bar-bg {
       background: #21262d;
-      height: 6px;
+      height: 5px;
       width: 100%;
-      margin: 2px 0 6px 0;
+      margin: 1px 0 5px 0;
       border-radius: 2px;
       overflow: hidden;
     }
@@ -90,16 +90,16 @@
     .btn-grid {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
-      gap: 6px;
-      margin-top: 8px;
+      gap: 5px;
+      margin-top: 6px;
     }
     button {
       background: #21262d;
       color: var(--text-main);
       border: 1px solid var(--panel-border);
-      padding: 8px;
+      padding: 6px;
       font-family: inherit;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: bold;
       cursor: pointer;
       border-radius: 3px;
@@ -114,15 +114,15 @@
     .direction-pad {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 4px;
-      max-width: 140px;
-      margin: 8px auto 0 auto;
+      gap: 3px;
+      max-width: 120px;
+      margin: 6px auto 0 auto;
     }
-    .direction-pad button { padding: 6px; }
+    .direction-pad button { padding: 4px; }
     #log-stream {
-      height: 140px;
+      height: 120px;
       overflow-y: auto;
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       line-height: 1.3;
       background: #0d1117;
       padding: 6px;
@@ -134,10 +134,10 @@
       position: absolute;
       background: rgba(22, 27, 34, 0.95);
       border: 2px solid var(--accent-gold);
-      padding: 10px;
-      font-size: 0.75rem;
+      padding: 8px;
+      font-size: 0.72rem;
       z-index: 10;
-      width: 240px;
+      width: 230px;
       pointer-events: none;
     }
     #move-confirm-modal {
@@ -145,8 +145,8 @@
       position: absolute;
       background: rgba(22, 27, 34, 0.95);
       border: 2px solid var(--player-blue);
-      padding: 8px;
-      font-size: 0.75rem;
+      padding: 6px;
+      font-size: 0.72rem;
       z-index: 20;
       border-radius: 4px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.8);
@@ -155,20 +155,20 @@
     #move-confirm-modal .btn-actions {
       display: flex;
       gap: 6px;
-      margin-top: 6px;
+      margin-top: 5px;
       justify-content: center;
     }
-    #move-confirm-modal button { padding: 4px 10px; font-size: 0.7rem; }
+    #move-confirm-modal button { padding: 3px 8px; font-size: 0.68rem; }
     
     #phase-banner {
       display: none;
       position: absolute;
-      top: 40%;
+      top: 42%;
       left: -100%;
       width: 100%;
-      height: 70px;
+      height: 65px;
       z-index: 30;
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: 900;
       letter-spacing: 4px;
       text-transform: uppercase;
@@ -180,30 +180,31 @@
       border-bottom: 3px solid #fff;
       pointer-events: none;
     }
-    .phase-blue { background: linear-gradient(90deg, transparent, rgba(31, 111, 235, 0.9) 20%, rgba(31, 111, 235, 0.9) 80%, transparent); color: #fff; text-shadow: 0 2px 4px #000; }
-    .phase-red  { background: linear-gradient(90deg, transparent, rgba(218, 54, 51, 0.9) 20%, rgba(218, 54, 51, 0.9) 80%, transparent); color: #fff; text-shadow: 0 2px 4px #000; }
+    .phase-blue { background: linear-gradient(90deg, transparent, rgba(31, 111, 235, 0.92) 20%, rgba(31, 111, 235, 0.92) 80%, transparent); color: #fff; }
+    .phase-red  { background: linear-gradient(90deg, transparent, rgba(218, 54, 51, 0.92) 20%, rgba(218, 54, 51, 0.92) 80%, transparent); color: #fff; }
 
     .badge {
       display: inline-block;
       padding: 1px 4px;
-      font-size: 0.65rem;
+      font-size: 0.62rem;
       border-radius: 2px;
       font-weight: bold;
-      margin-right: 4px;
+      margin-right: 3px;
     }
     .badge-formation { background: #1f6feb; color: #fff; }
     .badge-flyer { background: #8957e5; color: #fff; }
     .badge-bloom { background: #238636; color: #fff; }
     .badge-stagger { background: #da3633; color: #fff; }
+    .badge-graft { background: #b08800; color: #fff; }
   </style>
 </head>
 <body>
 
-  <h1>Ironclad Oath: The Thornwood River</h1>
+  <h1>Ironclad Oath: The Grand Crossing</h1>
 
   <div id="game-layout">
     <div id="canvas-container">
-      <canvas id="stage" width="480" height="528"></canvas>
+      <canvas id="stage" width="672" height="672"></canvas>
       <div id="forecast-modal"></div>
       <div id="move-confirm-modal">
         <div style="font-weight: bold; color: var(--accent-gold);">Move Here?</div>
@@ -225,11 +226,12 @@
         <div class="panel-header">Action Deck</div>
         <div class="btn-grid">
           <button id="btn-strike" disabled>Strike</button>
+          <button id="btn-skill" disabled>Skill</button>
           <button id="btn-rest" disabled>Rest (+3)</button>
           <button id="btn-face" disabled>Set Facing</button>
         </div>
         <div id="facing-widget" style="display: none;">
-          <div style="font-size: 0.7rem; text-align: center; margin-top: 6px;">Lock Final Facing:</div>
+          <div style="font-size: 0.7rem; text-align: center; margin-top: 4px;">Set Direction:</div>
           <div class="direction-pad">
             <div></div><button onclick="commitFacing('NORTH')">▲</button><div></div>
             <button onclick="commitFacing('WEST')">◀</button><div></div><button onclick="commitFacing('EAST')">▶</button>
@@ -247,9 +249,9 @@
   </div>
 
   <script>
-    const TILE_SIZE = 48;
-    const COLS = 10;
-    const ROWS = 11;
+    const TILE_SIZE = 42;
+    const COLS = 16;
+    const ROWS = 16;
     const canvas = document.getElementById("stage");
     const ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
@@ -261,92 +263,179 @@
       WEST:  { dx: -1, dy: 0, glyph: "<", name: "WEST" }
     };
 
-    const bridgeTiles = new Set(["4,5", "5,5"]);
+    // Environmental Setups for 16x16
+    const bridgeTiles = new Set(["4,7", "5,7", "11,7", "12,7"]); // Two wide bridge crossings
+    const ruinTiles = new Set(["2,3", "3,3", "12,3", "13,3", "2,12", "3,12", "12,12", "13,12"]);
     const roadTiles = new Set([
-      "4,0","5,0","4,1","5,1","4,2","5,2","4,3","5,3","4,4","5,4",
-      "4,5","5,5",
-      "4,6","5,6","4,7","5,7","4,8","5,8","4,9","5,9","4,10","5,10"
+      "4,0","5,0","4,1","5,1","4,2","5,2","4,3","5,3","4,4","5,4","4,5","5,5","4,6","5,6",
+      "4,7","5,7","4,8","5,8","4,9","5,9","4,10","5,10","4,11","5,11","4,12","5,12","4,13","5,13","4,14","5,14","4,15","5,15",
+      "11,0","12,0","11,1","12,1","11,2","12,2","11,3","12,3","11,4","12,4","11,5","12,5","11,6","12,6",
+      "11,7","12,7","11,8","12,8","11,9","12,9","11,10","12,10","11,11","12,11","11,12","12,12","11,13","12,13","11,14","12,14","11,15","12,15",
+      "6,7","7,7","8,7","9,7","10,7" // Connecting horizontal road along riverbanks
     ]);
+
     const forestTiles = new Set([
-      "0,0","1,0","8,0","9,0","0,1","8,1","9,1",
-      "1,3","8,3","9,3","2,4","7,4","8,4",
-      "1,6","2,6","8,6","0,7","7,7","8,7","9,7",
-      "0,9","1,9","8,9","9,9","0,10","1,10","8,10","9,10"
+      "0,0","1,0","2,0","0,1","1,1","14,0","15,0","14,1","15,1",
+      "7,2","8,2","7,3","8,3",
+      "0,8","1,8","2,8","14,8","15,8",
+      "7,12","8,12","7,13","8,13",
+      "0,15","1,15","14,15","15,15"
     ]);
 
     let turnCount = 1;
     let selectedUnit = null;
-    let actionMode = null; 
+    let actionMode = null; // 'ATTACK' or 'SKILL'
     let pendingMoveTile = null; 
     let animationPulse = 0;
     let isBannerPlaying = false;
     let isEnemyPhaseActive = false;
     let floatingTexts = [];
 
+    // Complete Roster - 9 Units per army
     let units = [
-      // Mercenaries (South)
-      { id: "P1", name: "Vanguard Knight", faction: "PLAYER", x: 4, y: 9, facing: DIRS.NORTH,
-        moveRange: 2, hp: 45, maxHp: 45, fatigue: 0, maxFat: 30, poise: 40, maxPoise: 40,
+      // PLAYER ARMY (South)
+      { id: "P1", name: "Vanguard Knight", role: "Vanguard", faction: "PLAYER", x: 4, y: 13, facing: DIRS.NORTH,
+        moveRange: 2, hp: 48, maxHp: 48, fatigue: 0, maxFat: 32, poise: 42, maxPoise: 42,
         accuracy: 34, critChance: 0.08, atk: 22, range: 1, poiseAtk: 18, shred: 12,
         shield: true, spear: false, isArcher: false, isFlying: false,
-        armor: { FRONT: 50, FLANK: 30, REAR: 15 },
+        armor: { FRONT: 55, FLANK: 32, REAR: 15 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P2", name: "Hedge Halberdier", faction: "PLAYER", x: 5, y: 9, facing: DIRS.NORTH,
-        moveRange: 3, hp: 38, maxHp: 38, fatigue: 0, maxFat: 25, poise: 30, maxPoise: 30,
-        accuracy: 40, critChance: 0.15, atk: 25, range: 2, poiseAtk: 16, shred: 15,
+      { id: "P2", name: "Hedge Halberdier", role: "Halberdier", faction: "PLAYER", x: 5, y: 13, facing: DIRS.NORTH,
+        moveRange: 3, hp: 40, maxHp: 40, fatigue: 0, maxFat: 26, poise: 32, maxPoise: 32,
+        accuracy: 42, critChance: 0.15, atk: 26, range: 2, poiseAtk: 16, shred: 15,
         shield: false, spear: true, isArcher: false, isFlying: false,
-        armor: { FRONT: 35, FLANK: 20, REAR: 10 },
+        armor: { FRONT: 38, FLANK: 22, REAR: 12 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P3", name: "Outrider Scout", faction: "PLAYER", x: 4, y: 10, facing: DIRS.NORTH,
-        moveRange: 4, hp: 28, maxHp: 28, fatigue: 0, maxFat: 20, poise: 18, maxPoise: 18,
-        accuracy: 55, critChance: 0.28, atk: 20, range: 3, poiseAtk: 10, shred: 8,
+      { id: "P3", name: "Outrider Scout", role: "Archer", faction: "PLAYER", x: 4, y: 14, facing: DIRS.NORTH,
+        moveRange: 4, hp: 30, maxHp: 30, fatigue: 0, maxFat: 22, poise: 18, maxPoise: 18,
+        accuracy: 58, critChance: 0.28, atk: 21, range: 3, poiseAtk: 10, shred: 8,
         shield: false, spear: false, isArcher: true, isFlying: false,
-        armor: { FRONT: 15, FLANK: 10, REAR: 5 },
+        armor: { FRONT: 16, FLANK: 12, REAR: 6 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P4", name: "Skyguard Pegasus", faction: "PLAYER", x: 6, y: 10, facing: DIRS.NORTH,
-        moveRange: 5, hp: 32, maxHp: 32, fatigue: 0, maxFat: 28, poise: 22, maxPoise: 22,
-        accuracy: 48, critChance: 0.20, atk: 21, range: 1, poiseAtk: 12, shred: 10,
+      { id: "P4", name: "Skyguard Pegasus", role: "Flyer", faction: "PLAYER", x: 11, y: 13, facing: DIRS.NORTH,
+        moveRange: 5, hp: 34, maxHp: 34, fatigue: 0, maxFat: 28, poise: 24, maxPoise: 24,
+        accuracy: 50, critChance: 0.20, atk: 22, range: 1, poiseAtk: 14, shred: 10,
         shield: false, spear: true, isArcher: false, isFlying: true,
-        armor: { FRONT: 25, FLANK: 15, REAR: 10 },
+        armor: { FRONT: 26, FLANK: 16, REAR: 10 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      // Hostiles (North)
-      { id: "E1", name: "Footman A", faction: "ENEMY", x: 4, y: 2, facing: DIRS.SOUTH,
-        moveRange: 2, hp: 35, maxHp: 35, fatigue: 0, maxFat: 25, poise: 25, maxPoise: 25,
-        accuracy: 32, critChance: 0.10, atk: 19, range: 1, poiseAtk: 14, shred: 9,
+      { id: "P5", name: "Pyromancer", role: "Pyromancer", faction: "PLAYER", x: 12, y: 14, facing: DIRS.NORTH,
+        moveRange: 3, hp: 32, maxHp: 32, fatigue: 0, maxFat: 24, poise: 20, maxPoise: 20,
+        accuracy: 45, critChance: 0.18, atk: 28, range: 3, poiseAtk: 22, shred: 14,
+        shield: false, spear: false, isArcher: false, isFlying: false,
+        armor: { FRONT: 18, FLANK: 12, REAR: 8 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
+        moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "P6", name: "Greatsword Warden", role: "Warden", faction: "PLAYER", x: 6, y: 12, facing: DIRS.NORTH,
+        moveRange: 3, hp: 44, maxHp: 44, fatigue: 0, maxFat: 35, poise: 38, maxPoise: 38,
+        accuracy: 38, critChance: 0.22, atk: 30, range: 1, poiseAtk: 24, shred: 18,
+        shield: false, spear: false, isArcher: false, isFlying: false,
+        armor: { FRONT: 42, FLANK: 28, REAR: 14 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
+        moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "P7", name: "Apothecary", role: "Apothecary", faction: "PLAYER", x: 5, y: 14, facing: DIRS.NORTH,
+        moveRange: 3, hp: 32, maxHp: 32, fatigue: 0, maxFat: 25, poise: 20, maxPoise: 20,
+        accuracy: 40, critChance: 0.10, atk: 15, range: 1, poiseAtk: 8, shred: 4,
+        shield: false, spear: false, isArcher: false, isFlying: false,
+        armor: { FRONT: 20, FLANK: 14, REAR: 10 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
+        moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "P8", name: "Hook-Chain Duelist", role: "Duelist", faction: "PLAYER", x: 10, y: 12, facing: DIRS.NORTH,
+        moveRange: 4, hp: 35, maxHp: 35, fatigue: 0, maxFat: 28, poise: 22, maxPoise: 22,
+        accuracy: 62, critChance: 0.32, atk: 24, range: 2, poiseAtk: 16, shred: 12,
+        shield: false, spear: false, isArcher: false, isFlying: false,
+        armor: { FRONT: 18, FLANK: 14, REAR: 8 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
+        moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "P9", name: "Grafted Remnant", role: "Grafted", faction: "PLAYER", x: 8, y: 13, facing: DIRS.NORTH,
+        moveRange: 3, hp: 50, maxHp: 50, fatigue: 0, maxFat: 38, poise: 45, maxPoise: 45,
+        accuracy: 32, critChance: 0.12, atk: 26, range: 1, poiseAtk: 20, shred: 16,
+        shield: false, spear: false, isArcher: false, isFlying: false, isGrafted: true,
+        armor: { FRONT: 35, FLANK: 25, REAR: 15 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
+        moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      // HOSTILE FORCES (North)
+      { id: "E1", name: "Imperial Footman", role: "Vanguard", faction: "ENEMY", x: 4, y: 2, facing: DIRS.SOUTH,
+        moveRange: 2, hp: 36, maxHp: 36, fatigue: 0, maxFat: 25, poise: 26, maxPoise: 26,
+        accuracy: 32, critChance: 0.10, atk: 20, range: 1, poiseAtk: 15, shred: 9,
         shield: true, spear: false, isArcher: false, isFlying: false,
-        armor: { FRONT: 30, FLANK: 20, REAR: 10 },
+        armor: { FRONT: 35, FLANK: 22, REAR: 10 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E2", name: "Footman B", faction: "ENEMY", x: 5, y: 2, facing: DIRS.SOUTH,
-        moveRange: 2, hp: 35, maxHp: 35, fatigue: 0, maxFat: 25, poise: 25, maxPoise: 25,
-        accuracy: 32, critChance: 0.10, atk: 19, range: 1, poiseAtk: 14, shred: 9,
-        shield: true, spear: false, isArcher: false, isFlying: false,
-        armor: { FRONT: 30, FLANK: 20, REAR: 10 },
+      { id: "E2", name: "Imperial Halberd", role: "Halberdier", faction: "ENEMY", x: 5, y: 2, facing: DIRS.SOUTH,
+        moveRange: 3, hp: 36, maxHp: 36, fatigue: 0, maxFat: 25, poise: 26, maxPoise: 26,
+        accuracy: 35, critChance: 0.12, atk: 22, range: 2, poiseAtk: 14, shred: 12,
+        shield: false, spear: true, isArcher: false, isFlying: false,
+        armor: { FRONT: 32, FLANK: 20, REAR: 10 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
-        shield: true, staggered: false, inShieldWall: false, inSpearHedge: false },
+        staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E3", name: "Harpy Scout", faction: "ENEMY", x: 7, y: 1, facing: DIRS.SOUTH,
-        moveRange: 4, hp: 26, maxHp: 26, fatigue: 0, maxFat: 22, poise: 16, maxPoise: 16,
-        accuracy: 45, critChance: 0.18, atk: 18, range: 1, poiseAtk: 10, shred: 7,
+      { id: "E3", name: "Harpy Scout", role: "Flyer", faction: "ENEMY", x: 13, y: 1, facing: DIRS.SOUTH,
+        moveRange: 5, hp: 28, maxHp: 28, fatigue: 0, maxFat: 24, poise: 18, maxPoise: 18,
+        accuracy: 48, critChance: 0.18, atk: 20, range: 1, poiseAtk: 12, shred: 8,
         shield: false, spear: false, isArcher: false, isFlying: true,
-        armor: { FRONT: 15, FLANK: 10, REAR: 5 },
+        armor: { FRONT: 16, FLANK: 12, REAR: 6 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "ET", name: "Bloom Thrall", faction: "ENEMY", x: 2, y: 2, facing: DIRS.SOUTH,
-        moveRange: 3, hp: 55, maxHp: 55, fatigue: 0, maxFat: 40, poise: 60, maxPoise: 60,
-        accuracy: 26, critChance: 0.18, atk: 27, range: 1, poiseAtk: 26, shred: 18,
+      { id: "E4", name: "Imperial Arbalest", role: "Archer", faction: "ENEMY", x: 11, y: 2, facing: DIRS.SOUTH,
+        moveRange: 3, hp: 28, maxHp: 28, fatigue: 0, maxFat: 22, poise: 18, maxPoise: 18,
+        accuracy: 50, critChance: 0.22, atk: 22, range: 3, poiseAtk: 12, shred: 10,
+        shield: false, spear: false, isArcher: true, isFlying: false,
+        armor: { FRONT: 18, FLANK: 12, REAR: 6 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
+        staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "E5", name: "Heretic Pyro", role: "Pyromancer", faction: "ENEMY", x: 12, y: 2, facing: DIRS.SOUTH,
+        moveRange: 3, hp: 30, maxHp: 30, fatigue: 0, maxFat: 24, poise: 18, maxPoise: 18,
+        accuracy: 42, critChance: 0.18, atk: 27, range: 3, poiseAtk: 20, shred: 14,
+        shield: false, spear: false, isArcher: false, isFlying: false,
+        armor: { FRONT: 16, FLANK: 12, REAR: 8 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
+        staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "E6", name: "Mercenary Zweihänder", role: "Warden", faction: "ENEMY", x: 6, y: 3, facing: DIRS.SOUTH,
+        moveRange: 3, hp: 42, maxHp: 42, fatigue: 0, maxFat: 32, poise: 34, maxPoise: 34,
+        accuracy: 36, critChance: 0.20, atk: 28, range: 1, poiseAtk: 22, shred: 16,
+        shield: false, spear: false, isArcher: false, isFlying: false,
+        armor: { FRONT: 38, FLANK: 24, REAR: 12 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
+        staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "E7", name: "Plague Leech", role: "Apothecary", faction: "ENEMY", x: 3, y: 1, facing: DIRS.SOUTH,
+        moveRange: 3, hp: 30, maxHp: 30, fatigue: 0, maxFat: 24, poise: 18, maxPoise: 18,
+        accuracy: 38, critChance: 0.10, atk: 14, range: 1, poiseAtk: 8, shred: 4,
+        shield: false, spear: false, isArcher: false, isFlying: false,
+        armor: { FRONT: 18, FLANK: 12, REAR: 8 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
+        staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "E8", name: "Flail Marauder", role: "Duelist", faction: "ENEMY", x: 10, y: 3, facing: DIRS.SOUTH,
+        moveRange: 4, hp: 34, maxHp: 34, fatigue: 0, maxFat: 26, poise: 22, maxPoise: 22,
+        accuracy: 58, critChance: 0.28, atk: 23, range: 2, poiseAtk: 16, shred: 12,
+        shield: false, spear: false, isArcher: false, isFlying: false,
+        armor: { FRONT: 20, FLANK: 14, REAR: 8 },
+        offsetX: 0, offsetY: 0, flashRedTimer: 0,
+        staggered: false, inShieldWall: false, inSpearHedge: false },
+
+      { id: "ET", name: "Bloom Thrall", role: "Grafted", faction: "ENEMY", x: 8, y: 2, facing: DIRS.SOUTH,
+        moveRange: 3, hp: 60, maxHp: 60, fatigue: 0, maxFat: 42, poise: 65, maxPoise: 65,
+        accuracy: 28, critChance: 0.18, atk: 28, range: 1, poiseAtk: 26, shred: 18,
         shield: false, spear: false, isArcher: false, isFlying: false, afflicted: true,
-        armor: { FRONT: 15, FLANK: 15, REAR: 15 },
+        armor: { FRONT: 20, FLANK: 20, REAR: 20 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false }
     ];
@@ -358,7 +447,7 @@
     }
 
     function isWaterTile(x, y) {
-      if (y !== 5) return false;
+      if (y !== 7) return false;
       return !bridgeTiles.has(`${x},${y}`);
     }
 
@@ -379,11 +468,11 @@
       let absY = Math.abs(dy);
       let manhattan = absX + absY;
 
-      if (!attacker.isArcher) {
-        return manhattan <= attacker.range;
+      if (attacker.isArcher) {
+        if (absX === 1 && absY === 1) return true;
+        return manhattan >= 2 && manhattan <= attacker.range;
       }
-      if (absX === 1 && absY === 1) return true;
-      return manhattan >= 2 && manhattan <= attacker.range;
+      return manhattan <= attacker.range;
     }
 
     function spawnFloatingText(text, color, gx, gy) {
@@ -413,16 +502,14 @@
           let ny = curr.y + d.dy;
 
           if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
-          // Water obstacle check bypassed by flying units
+          if (ruinTiles.has(`${nx},${ny}`)) continue;
           if (!unit.isFlying && isWaterTile(nx, ny)) continue;
 
           let occ = getUnitAt(nx, ny);
           if (occ && occ.faction !== unit.faction) continue;
 
           let cost = 1;
-          if (!unit.isFlying) {
-            if (isInsideBloomAura(nx, ny) || forestTiles.has(`${nx},${ny}`)) cost = 1.5;
-          }
+          if (!unit.isFlying && (isInsideBloomAura(nx, ny) || forestTiles.has(`${nx},${ny}`))) cost = 1.5;
           let newDist = curr.dist + cost;
 
           if (newDist <= unit.moveRange) {
@@ -491,8 +578,8 @@
 
       let dirX = Math.sign(defender.x - attacker.x);
       let dirY = Math.sign(defender.y - attacker.y);
-      attacker.offsetX = dirX * 10;
-      attacker.offsetY = dirY * 10;
+      attacker.offsetX = dirX * 9;
+      attacker.offsetY = dirY * 9;
       setTimeout(() => { attacker.offsetX = 0; attacker.offsetY = 0; }, 160);
 
       let res = calculateFacingVector(attacker, defender);
@@ -502,32 +589,36 @@
         spawnFloatingText("MISS", "#ffffff", defender.x, defender.y);
         let perpX = -dirY;
         let perpY = dirX;
-        defender.offsetX = perpX * 12;
-        defender.offsetY = perpY * 12;
+        defender.offsetX = perpX * 10;
+        defender.offsetY = perpY * 10;
         setTimeout(() => { defender.offsetX = 0; defender.offsetY = 0; }, 180);
-        log(`[DODGE] <b>${defender.name}</b> evaded strike from <b>${attacker.name}</b>!`);
+        log(`[DODGE] <b>${defender.name}</b> evaded <b>${attacker.name}</b>!`);
         return;
       }
 
       if (defender.inShieldWall && res.angle === "FRONT" && (attacker.range > 1 || attacker.isArcher)) {
         spawnFloatingText("DEFLECT", "var(--player-blue)", defender.x, defender.y);
-        log(`[SHIELD WALL] <b>${defender.name}</b> negated projectile!`);
+        log(`[SHIELD WALL] <b>${defender.name}</b> negated ranged projectile!`);
         return;
       }
 
       let isCrit = Math.random() < attacker.critChance;
       let critMult = isCrit ? 2.0 : 1.0;
 
-      if (isCrit) {
-        spawnFloatingText("CRITICAL!", "var(--accent-gold)", defender.x, defender.y);
+      // Greatsword Exertion Surge bonus
+      let exertionBonus = 0;
+      if (attacker.role === "Warden") {
+        exertionBonus = (attacker.fatigue / attacker.maxFat) * 10;
       }
 
+      if (isCrit) spawnFloatingText("CRITICAL!", "var(--accent-gold)", defender.x, defender.y);
+
       defender.flashRedTimer = 8;
-      defender.offsetX = dirX * 8;
-      defender.offsetY = dirY * 8;
+      defender.offsetX = dirX * 7;
+      defender.offsetY = dirY * 7;
       setTimeout(() => { defender.offsetX = 0; defender.offsetY = 0; }, 160);
 
-      let rawDamage = attacker.atk * res.mult * critMult;
+      let rawDamage = (attacker.atk + exertionBonus) * res.mult * critMult;
       let armVal = defender.armor[res.slot];
       let unmitigated = 0;
       let absorbed = 0;
@@ -543,6 +634,13 @@
       defender.armor[res.slot] = Math.max(0, defender.armor[res.slot] - attacker.shred);
       defender.hp = Math.max(0, defender.hp - unmitigated);
 
+      // Grafted Remnant Lifesteal inside Bloom
+      if (attacker.isGrafted && isInsideBloomAura(attacker.x, attacker.y)) {
+        let leech = unmitigated * 0.35;
+        attacker.hp = Math.min(attacker.maxHp, attacker.hp + leech);
+        spawnFloatingText(`+${leech.toFixed(0)} HP`, "var(--bloom-green)", attacker.x, attacker.y);
+      }
+
       if (!defender.afflicted) {
         defender.poise = Math.max(0, defender.poise - attacker.poiseAtk);
         if (defender.poise <= 0 && !defender.staggered) {
@@ -552,12 +650,10 @@
       }
 
       let tag = isOpportunity ? "[REACTION] " : "";
-      let critTag = isCrit ? "<span style='color:var(--accent-gold); font-weight:bold;'> [CRITICAL HIT!]</span>" : "";
+      let critTag = isCrit ? "<span style='color:var(--accent-gold); font-weight:bold;'> [CRIT!]</span>" : "";
       log(`${tag}<b>${attacker.name}</b> hits <b>${defender.name}</b> (${res.angle})${critTag} for ${unmitigated.toFixed(1)} DMG!`);
 
-      if (defender.hp <= 0) {
-        log(`💀 <b>${defender.name}</b> was slain!`);
-      }
+      if (defender.hp <= 0) log(`💀 <b>${defender.name}</b> was slain!`);
 
       updateAuras();
       updateIntelPanel();
@@ -566,7 +662,7 @@
     function checkZOC(mover, fromX, fromY) {
       for (let e of units.filter(u => u.faction !== mover.faction && u.hp > 0 && !u.staggered)) {
         if (fromX === e.x + e.facing.dx && fromY === e.y + e.facing.dy) {
-          log(`<span style="color:var(--accent-gold)">[!] ZoC Strike: ${e.name} opportunity strike!</span>`);
+          log(`<span style="color:var(--accent-gold)">[!] ZoC Strike: ${e.name} opportunity attack!</span>`);
           executeCombat(e, mover, true);
           if (mover.hp <= 0) return false;
         }
@@ -577,12 +673,45 @@
     function checkSpearHedge(mover, toX, toY) {
       for (let e of units.filter(u => u.faction !== mover.faction && u.hp > 0 && u.inSpearHedge && !u.staggered)) {
         if (toX === e.x + e.facing.dx && toY === e.y + e.facing.dy) {
-          log(`<span style="color:var(--accent-gold)">[!] Spear Hedge: ${e.name} intercepts advance!</span>`);
+          log(`<span style="color:var(--accent-gold)">[!] Spear Hedge: ${e.name} intercept!</span>`);
           executeCombat(e, mover, true);
           if (mover.staggered || mover.hp <= 0) return false;
         }
       }
       return true;
+    }
+
+    // Role-Specific Class Skills
+    function executeClassSkill(actor, target) {
+      if (actor.role === "Apothecary") {
+        // Triage: Heal, remove 10 fatigue, cure stagger
+        target.hp = Math.min(target.maxHp, target.hp + 18);
+        target.fatigue = Math.max(0, target.fatigue - 10);
+        target.staggered = false;
+        actor.fatigue = Math.min(actor.maxFat, actor.fatigue + 4);
+        actor.acted = true;
+        spawnFloatingText("TREATED!", "var(--player-blue)", target.x, target.y);
+        log(`<b>${actor.name}</b> triaged <b>${target.name}</b> (+18 HP, -10 Fatigue).`);
+      } else if (actor.role === "Duelist") {
+        // Hook & Drag: Pull target 1 tile closer, flip their facing away (expose rear)
+        let dx = Math.sign(actor.x - target.x);
+        let dy = Math.sign(actor.y - target.y);
+        let pullX = target.x + dx;
+        let pullY = target.y + dy;
+
+        if (!getUnitAt(pullX, pullY) && !isWaterTile(pullX, pullY) && !ruinTiles.has(`${pullX},${pullY}`)) {
+          target.x = pullX;
+          target.y = pullY;
+        }
+        // Rotate target to face away from actor
+        target.facing = actor.facing;
+        actor.fatigue = Math.min(actor.maxFat, actor.fatigue + 5);
+        actor.acted = true;
+        spawnFloatingText("HOOKED!", "var(--accent-gold)", target.x, target.y);
+        log(`<b>${actor.name}</b> hooked and dragged <b>${target.name}</b>, exposing their rear!`);
+      }
+      updateAuras();
+      updateIntelPanel();
     }
 
     function playPhaseBanner(title, isPlayer, callback) {
@@ -607,14 +736,13 @@
           isBannerPlaying = false;
           if (callback) callback();
         }, 300);
-      }, 1000);
+      }, 950);
     }
 
     function delay(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // Sequential Enemy AI Turn Execution
     async function runTacticalAISequential() {
       isEnemyPhaseActive = true;
       let activeEnemies = units.filter(u => u.faction === "ENEMY" && u.hp > 0);
@@ -625,9 +753,19 @@
         if (enemy.staggered) {
           enemy.staggered = false;
           enemy.poise = enemy.maxPoise * 0.5;
-          log(`${enemy.name} recovering from stagger.`);
-          await delay(400);
+          log(`${enemy.name} recovered from stagger.`);
+          await delay(350);
           continue;
+        }
+
+        // Apothecary AI heals damaged allies first
+        if (enemy.role === "Apothecary") {
+          let woundedAllies = units.filter(u => u.faction === "ENEMY" && u.hp > 0 && u.hp < u.maxHp && Math.abs(u.x - enemy.x) + Math.abs(u.y - enemy.y) <= 1);
+          if (woundedAllies.length > 0) {
+            executeClassSkill(enemy, woundedAllies[0]);
+            await delay(450);
+            continue;
+          }
         }
 
         let players = units.filter(p => p.faction === "PLAYER" && p.hp > 0);
@@ -635,39 +773,37 @@
         players.sort((a,b) => (Math.abs(a.x - enemy.x) + Math.abs(a.y - enemy.y)) - (Math.abs(b.x - enemy.x) + Math.abs(b.y - enemy.y)));
         let target = players[0];
 
-        // Move calculation
         let sx = target.x > enemy.x ? 1 : (target.x < enemy.x ? -1 : 0);
         let sy = target.y > enemy.y ? 1 : (target.y < enemy.y ? -1 : 0);
 
-        // Ground enemies route via the bridge
-        if (!enemy.isFlying && ((enemy.y < 5 && target.y > 5) || (enemy.y > 5 && target.y < 5))) {
-          let bridgeX = enemy.x <= 4 ? 4 : 5;
+        // Ground navigation through the two bridges
+        if (!enemy.isFlying && ((enemy.y < 7 && target.y > 7) || (enemy.y > 7 && target.y < 7))) {
+          let bridgeX = enemy.x <= 8 ? 5 : 11;
           sx = bridgeX > enemy.x ? 1 : (bridgeX < enemy.x ? -1 : 0);
-          sy = 5 > enemy.y ? 1 : (5 < enemy.y ? -1 : 0);
+          sy = 7 > enemy.y ? 1 : (7 < enemy.y ? -1 : 0);
         }
 
         let nx = enemy.x + sx;
         let ny = enemy.y + sy;
 
         let moved = false;
-        if (sx !== 0 && !getUnitAt(nx, enemy.y) && (enemy.isFlying || !isWaterTile(nx, enemy.y)) && checkSpearHedge(enemy, nx, enemy.y)) {
+        if (sx !== 0 && !getUnitAt(nx, enemy.y) && !ruinTiles.has(`${nx},${enemy.y}`) && (enemy.isFlying || !isWaterTile(nx, enemy.y)) && checkSpearHedge(enemy, nx, enemy.y)) {
           enemy.x = nx;
           moved = true;
-        } else if (sy !== 0 && !getUnitAt(enemy.x, ny) && (enemy.isFlying || !isWaterTile(enemy.x, ny)) && checkSpearHedge(enemy, enemy.x, ny)) {
+        } else if (sy !== 0 && !getUnitAt(enemy.x, ny) && !ruinTiles.has(`${enemy.x},${ny}`) && (enemy.isFlying || !isWaterTile(enemy.x, ny)) && checkSpearHedge(enemy, enemy.x, ny)) {
           enemy.y = ny;
           moved = true;
         }
 
         orientUnitTowards(enemy, target);
         updateAuras();
-        if (moved) await delay(450);
+        if (moved) await delay(350);
 
         if (canUnitTarget(enemy, target) && enemy.hp > 0 && !enemy.staggered) {
           executeCombat(enemy, target);
-          await delay(550);
+          await delay(450);
         }
       }
-
       isEnemyPhaseActive = false;
     }
 
@@ -686,10 +822,9 @@
       let bob = u.isFlying ? Math.sin(animationPulse * 2) * 3 : 0;
       ctx.translate(px + TILE_SIZE/2 + u.offsetX, py + TILE_SIZE/2 + u.offsetY + bob);
 
-      // Base shadow
-      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
       ctx.beginPath();
-      ctx.ellipse(0, TILE_SIZE/2 - 6 - bob, 12, 6, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, TILE_SIZE/2 - 5 - bob, 11, 5, 0, 0, Math.PI * 2);
       ctx.fill();
 
       let isFlashing = u.flashRedTimer > 0;
@@ -698,61 +833,79 @@
       let armorColor = isFlashing ? "#ff2222" : (u.faction === "PLAYER" ? "#2b4b8a" : (u.afflicted ? "#2d5a27" : "#8b263e"));
       let metalColor = isFlashing ? "#ffffff" : (u.faction === "PLAYER" ? "#6d8bc6" : (u.afflicted ? "#598a42" : "#c44d56"));
 
-      // Flying Wings Rendering
       if (u.isFlying) {
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.ellipse(-14, -4, 8, 4, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(14, -4, 8, 4, 0.3, 0, Math.PI * 2);
+        ctx.ellipse(-12, -4, 7, 3.5, -0.3, 0, Math.PI * 2);
+        ctx.ellipse(12, -4, 7, 3.5, 0.3, 0, Math.PI * 2);
         ctx.fill();
       }
 
       ctx.fillStyle = armorColor;
-      ctx.fillRect(-8, -8, 16, 16);
+      ctx.fillRect(-7, -7, 14, 14);
       ctx.fillStyle = metalColor;
-      ctx.fillRect(-6, -6, 12, 12);
+      ctx.fillRect(-5, -5, 10, 10);
       ctx.fillStyle = isFlashing ? "#ffffff" : "#e0ac69";
-      ctx.fillRect(-3, -10, 6, 4);
+      ctx.fillRect(-3, -9, 6, 4);
 
+      // Distinct Class Weapon Indicators
       if (u.shield) {
         ctx.fillStyle = "#e3b341";
-        ctx.fillRect(-12, -6, 4, 12);
+        ctx.fillRect(-11, -5, 3.5, 10);
       }
       if (u.spear) {
         ctx.fillStyle = "#c0c0c0";
-        ctx.fillRect(8, -18, 3, 26);
+        ctx.fillRect(7, -16, 2.5, 24);
       }
       if (u.isArcher) {
         ctx.strokeStyle = "#8b5a2b";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(8, 0, 8, -Math.PI / 2, Math.PI / 2);
+        ctx.arc(7, 0, 7, -Math.PI / 2, Math.PI / 2);
+        ctx.stroke();
+      }
+      if (u.role === "Pyromancer") {
+        ctx.fillStyle = "#f85149";
+        ctx.beginPath();
+        ctx.arc(8, -4, 4, 0, Math.PI*2);
+        ctx.fill();
+      }
+      if (u.role === "Warden") {
+        ctx.fillStyle = "#e5e9f0";
+        ctx.fillRect(7, -18, 4, 26);
+      }
+      if (u.role === "Apothecary") {
+        ctx.fillStyle = "#56d364";
+        ctx.fillRect(6, -4, 6, 6);
+      }
+      if (u.role === "Duelist") {
+        ctx.strokeStyle = "#d8dee9";
+        ctx.beginPath();
+        ctx.arc(7, 0, 5, 0, Math.PI);
         ctx.stroke();
       }
 
       if (u.staggered) {
         ctx.fillStyle = "#f85149";
-        ctx.font = "bold 10px monospace";
-        ctx.fillText("STUN", -12, -18);
+        ctx.font = "bold 9px monospace";
+        ctx.fillText("STUN", -11, -14);
       }
 
-      // Chevron
       ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
-      let off = 16;
+      let off = 14;
       ctx.beginPath();
-      if (u.facing === DIRS.NORTH) { ctx.moveTo(0, -off); ctx.lineTo(-4, -off+5); ctx.lineTo(4, -off+5); }
-      if (u.facing === DIRS.SOUTH) { ctx.moveTo(0, off); ctx.lineTo(-4, off-5); ctx.lineTo(4, off-5); }
-      if (u.facing === DIRS.EAST)  { ctx.moveTo(off, 0); ctx.lineTo(off-5, -4); ctx.lineTo(off-5, 4); }
-      if (u.facing === DIRS.WEST)  { ctx.moveTo(-off, 0); ctx.lineTo(-off+5, -4); ctx.lineTo(-off+5, 4); }
+      if (u.facing === DIRS.NORTH) { ctx.moveTo(0, -off); ctx.lineTo(-3, -off+4); ctx.lineTo(3, -off+4); }
+      if (u.facing === DIRS.SOUTH) { ctx.moveTo(0, off); ctx.lineTo(-3, off-4); ctx.lineTo(3, off-4); }
+      if (u.facing === DIRS.EAST)  { ctx.moveTo(off, 0); ctx.lineTo(off-4, -3); ctx.lineTo(off-4, 3); }
+      if (u.facing === DIRS.WEST)  { ctx.moveTo(-off, 0); ctx.lineTo(-off+4, -3); ctx.lineTo(-off+4, 3); }
       ctx.fill();
       ctx.restore();
 
-      // Mini Health Bars
-      let barW = TILE_SIZE - 12;
+      let barW = TILE_SIZE - 10;
       ctx.fillStyle = "#21262d";
-      ctx.fillRect(px + 6 + u.offsetX, py + TILE_SIZE - 8 + u.offsetY, barW, 3);
+      ctx.fillRect(px + 5 + u.offsetX, py + TILE_SIZE - 6 + u.offsetY, barW, 2.5);
       ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
-      ctx.fillRect(px + 6 + u.offsetX, py + TILE_SIZE - 8 + u.offsetY, barW * Math.max(0, u.hp / u.maxHp), 3);
+      ctx.fillRect(px + 5 + u.offsetX, py + TILE_SIZE - 6 + u.offsetY, barW * Math.max(0, u.hp / u.maxHp), 2.5);
     }
 
     function render() {
@@ -768,87 +921,98 @@
           let key = `${x},${y}`;
 
           if (roadTiles.has(key)) {
-            ctx.fillStyle = "#a89f81";
+            ctx.fillStyle = "#9f967a";
           } else {
-            ctx.fillStyle = (x + y) % 2 === 0 ? "#5a7a38" : "#4e6d2e";
+            ctx.fillStyle = (x + y) % 2 === 0 ? "#527332" : "#49662c";
           }
           ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-          // River & Bridge
-          if (y === 5) {
+          // River & Bridges
+          if (y === 7) {
             if (bridgeTiles.has(key)) {
               ctx.fillStyle = "#8a5836";
-              ctx.fillRect(px, py + 4, TILE_SIZE, TILE_SIZE - 8);
+              ctx.fillRect(px, py + 3, TILE_SIZE, TILE_SIZE - 6);
               ctx.strokeStyle = "#4a2a12";
-              ctx.strokeRect(px, py + 4, TILE_SIZE, TILE_SIZE - 8);
+              ctx.strokeRect(px, py + 3, TILE_SIZE, TILE_SIZE - 6);
             } else {
-              ctx.fillStyle = "#245070";
+              ctx.fillStyle = "#204663";
               ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-              ctx.fillStyle = "rgba(255,255,255,0.2)";
-              ctx.fillRect(px, py + 12 + Math.sin(animationPulse + x)*3, TILE_SIZE, 4);
+              ctx.fillStyle = "rgba(255,255,255,0.18)";
+              ctx.fillRect(px, py + 10 + Math.sin(animationPulse + x)*3, TILE_SIZE, 3);
             }
           }
 
-          if (forestTiles.has(key) && y !== 5) {
-            ctx.fillStyle = "#284a1e";
+          if (forestTiles.has(key) && y !== 7) {
+            ctx.fillStyle = "#223f19";
             ctx.beginPath();
-            ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, 14, 0, Math.PI*2);
+            ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, 12, 0, Math.PI*2);
             ctx.fill();
           }
 
-          // Dynamic Mobile Bloom Spores Aura (Follows Thrall)
+          if (ruinTiles.has(key)) {
+            ctx.fillStyle = "#3b4252";
+            ctx.fillRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+          }
+
           if (thrall && Math.abs(thrall.x - x) <= 1 && Math.abs(thrall.y - y) <= 1) {
             let pulseAlpha = 0.28 + 0.12 * Math.sin(animationPulse + (x+y));
             ctx.fillStyle = `rgba(86, 211, 100, ${pulseAlpha})`;
             ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-            ctx.fillStyle = "rgba(86, 211, 100, 0.6)";
-            ctx.fillRect(px + 4, py + 4, 3, 3);
           }
 
-          ctx.strokeStyle = "rgba(0, 0, 0, 0.15)";
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.12)";
           ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
         }
       }
 
-      // Valid Movement Highlighting
-      if (selectedUnit && selectedUnit.hp > 0 && actionMode !== 'ATTACK' && !isEnemyPhaseActive) {
+      if (selectedUnit && selectedUnit.hp > 0 && !actionMode && !isEnemyPhaseActive) {
         let validMoves = getValidMoveTiles(selectedUnit);
         let movePulse = 0.25 + 0.1 * Math.sin(animationPulse * 2);
         ctx.fillStyle = `rgba(88, 166, 255, ${movePulse})`;
         validMoves.forEach(t => {
-          ctx.fillRect(t.x * TILE_SIZE + 2, t.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+          ctx.fillRect(t.x * TILE_SIZE + 1, t.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
           ctx.strokeStyle = "rgba(88, 166, 255, 0.7)";
-          ctx.strokeRect(t.x * TILE_SIZE + 2, t.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+          ctx.strokeRect(t.x * TILE_SIZE + 1, t.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
         });
       }
 
-      // Attack Target Highlighting
       if (selectedUnit && actionMode === 'ATTACK' && !isEnemyPhaseActive) {
         ctx.fillStyle = "rgba(248, 81, 73, 0.25)";
         units.filter(e => e.faction !== selectedUnit.faction && e.hp > 0).forEach(e => {
           if (canUnitTarget(selectedUnit, e)) {
-            ctx.fillRect(e.x * TILE_SIZE + 2, e.y * TILE_SIZE + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+            ctx.fillRect(e.x * TILE_SIZE + 1, e.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
           }
         });
       }
 
-      // Render Units
+      if (selectedUnit && actionMode === 'SKILL' && !isEnemyPhaseActive) {
+        ctx.fillStyle = "rgba(227, 179, 65, 0.25)";
+        let group = (selectedUnit.role === "Apothecary")
+          ? units.filter(u => u.faction === selectedUnit.faction && u.hp > 0)
+          : units.filter(u => u.faction !== selectedUnit.faction && u.hp > 0);
+        group.forEach(target => {
+          let dist = Math.abs(selectedUnit.x - target.x) + Math.abs(selectedUnit.y - target.y);
+          if (dist <= 2) {
+            ctx.fillRect(target.x * TILE_SIZE + 1, target.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+          }
+        });
+      }
+
       units.filter(u => u.hp > 0).forEach(u => drawPixelUnit(u, u.x * TILE_SIZE, u.y * TILE_SIZE));
 
-      // Floating Combat Text Pipeline
       for (let i = floatingTexts.length - 1; i >= 0; i--) {
         let ft = floatingTexts[i];
         ctx.save();
         ctx.globalAlpha = ft.alpha;
         ctx.fillStyle = ft.color;
-        ctx.font = "bold 13px 'Courier New', monospace";
+        ctx.font = "bold 12px 'Courier New', monospace";
         ctx.textAlign = "center";
         ctx.shadowColor = "#000";
         ctx.shadowBlur = 4;
         ctx.fillText(ft.text, ft.x, ft.y);
         ctx.restore();
 
-        ft.y -= 0.6;
+        ft.y -= 0.55;
         ft.life--;
         ft.alpha = ft.life / 50;
         if (ft.life <= 0) floatingTexts.splice(i, 1);
@@ -862,6 +1026,7 @@
       if (!selectedUnit || selectedUnit.hp <= 0) {
         box.innerHTML = "Click a unit on the field to inspect.";
         document.getElementById("btn-strike").disabled = true;
+        document.getElementById("btn-skill").disabled = true;
         document.getElementById("btn-rest").disabled = true;
         document.getElementById("btn-face").disabled = true;
         document.getElementById("facing-widget").style.display = "none";
@@ -870,32 +1035,32 @@
       }
 
       let u = selectedUnit;
-      let badges = "";
-      if (u.isFlying) badges += `<span class="badge badge-flyer">FLYING</span>`;
+      let badges = `<span class="badge" style="background:#444d56">${u.role.toUpperCase()}</span>`;
+      if (u.isFlying) badges += `<span class="badge badge-flyer">FLYER</span>`;
+      if (u.isGrafted) badges += `<span class="badge badge-graft">GRAFTED</span>`;
       if (u.inShieldWall) badges += `<span class="badge badge-formation">SHIELD WALL</span>`;
       if (u.inSpearHedge) badges += `<span class="badge badge-formation">SPEAR HEDGE</span>`;
       if (u.staggered) badges += `<span class="badge badge-stagger">STAGGERED</span>`;
-      if (isInsideBloomAura(u.x, u.y)) badges += `<span class="badge badge-bloom">IN BLOOM AURA</span>`;
 
       box.innerHTML = `
-        <div style="font-weight:bold; font-size:0.9rem; color:${u.faction==='PLAYER'?'var(--player-blue)':'var(--enemy-red)'}">
+        <div style="font-weight:bold; font-size:0.85rem; color:${u.faction==='PLAYER'?'var(--player-blue)':'var(--enemy-red)'}">
           ${u.name} [${u.id}]
         </div>
-        <div style="margin:4px 0;">${badges}</div>
+        <div style="margin:3px 0;">${badges}</div>
         <div class="stat-row"><span>Health</span><span>${u.hp.toFixed(1)} / ${u.maxHp}</span></div>
         <div class="bar-bg"><div class="bar-fill" style="width:${(u.hp/u.maxHp)*100}%; background:var(--enemy-red);"></div></div>
         <div class="stat-row"><span>Fatigue</span><span>${u.fatigue.toFixed(1)} / ${u.maxFat}</span></div>
         <div class="bar-bg"><div class="bar-fill" style="width:${(u.fatigue/u.maxFat)*100}%; background:var(--player-blue);"></div></div>
-        <div style="margin-top:6px; font-size:0.75rem;">
-          Atk Power: <b>${u.atk}</b> | Move: <b>${u.moveRange} tiles</b><br>
-          Accuracy: <b>${u.accuracy}</b> | Crit: <b>${(u.critChance*100).toFixed(0)}% (2x)</b><br>
-          Facing: <b>${u.facing.name}</b><br>
+        <div style="margin-top:4px; font-size:0.72rem;">
+          Atk: <b>${u.atk}</b> | Move: <b>${u.moveRange}</b> | Acc: <b>${u.accuracy}</b><br>
+          Crit: <b>${(u.critChance*100).toFixed(0)}%</b> | Facing: <b>${u.facing.name}</b><br>
           Armor: F:<b>${u.armor.FRONT}</b> S:<b>${u.armor.FLANK}</b> R:<b>${u.armor.REAR}</b>
         </div>
       `;
 
       let canAct = (u.faction === "PLAYER" && !u.done && !u.staggered && !isBannerPlaying && !isEnemyPhaseActive);
       document.getElementById("btn-strike").disabled = (!canAct || u.acted);
+      document.getElementById("btn-skill").disabled = (!canAct || u.acted || (u.role !== "Apothecary" && u.role !== "Duelist"));
       document.getElementById("btn-rest").disabled = (!canAct || u.acted);
       document.getElementById("btn-face").disabled = (!canAct);
     }
@@ -924,9 +1089,11 @@
         if (checkZOC(selectedUnit, oldX, oldY)) {
           selectedUnit.x = pendingMoveTile.x;
           selectedUnit.y = pendingMoveTile.y;
-          selectedUnit.fatigue += isInsideBloomAura(selectedUnit.x, selectedUnit.y) ? 2.0 : 1.0;
+          if (!selectedUnit.isGrafted) {
+            selectedUnit.fatigue += isInsideBloomAura(selectedUnit.x, selectedUnit.y) ? 2.0 : 1.0;
+          }
           selectedUnit.moved = true;
-          log(`${selectedUnit.name} repositioned to (${selectedUnit.x}, ${selectedUnit.y}).`);
+          log(`${selectedUnit.name} advanced to (${selectedUnit.x}, ${selectedUnit.y}).`);
         }
       }
       hideMoveModal();
@@ -957,7 +1124,7 @@
             <b>FORECAST: ${selectedUnit.name}</b><br>
             Vector: <b>${res.angle}</b> (${res.mult}x)<br>
             Dodge Odds: <b>${(dodgeOdds*100).toFixed(1)}%</b><br>
-            Crit Chance: <b>${(selectedUnit.critChance*100).toFixed(0)}% (2x)</b><br>
+            Crit Odds: <b>${(selectedUnit.critChance*100).toFixed(0)}% (2.0x)</b><br>
             Est. Hit Damage: <span style="color:var(--enemy-red)">${estDmg.toFixed(1)}</span>
           `;
           return;
@@ -983,6 +1150,17 @@
         return;
       }
 
+      if (actionMode === 'SKILL' && selectedUnit) {
+        let target = getUnitAt(gx, gy);
+        if (target) {
+          let dist = Math.abs(selectedUnit.x - target.x) + Math.abs(selectedUnit.y - target.y);
+          if (dist <= 2) executeClassSkill(selectedUnit, target);
+        }
+        actionMode = null;
+        updateIntelPanel();
+        return;
+      }
+
       if (selectedUnit && selectedUnit.faction === "PLAYER" && !selectedUnit.moved && !selectedUnit.done) {
         let validMoves = getValidMoveTiles(selectedUnit);
         let clickedMove = validMoves.find(t => t.x === gx && t.y === gy);
@@ -990,10 +1168,10 @@
           pendingMoveTile = clickedMove;
           const confirmModal = document.getElementById("move-confirm-modal");
           confirmModal.style.display = "block";
-          let modalLeft = (gx * TILE_SIZE) + TILE_SIZE + 6;
+          let modalLeft = (gx * TILE_SIZE) + TILE_SIZE + 4;
           let modalTop = (gy * TILE_SIZE);
-          if (modalLeft + 120 > canvas.width) modalLeft = (gx * TILE_SIZE) - 120;
-          if (modalTop + 60 > canvas.height) modalTop = canvas.height - 70;
+          if (modalLeft + 110 > canvas.width) modalLeft = (gx * TILE_SIZE) - 110;
+          if (modalTop + 50 > canvas.height) modalTop = canvas.height - 60;
           confirmModal.style.left = `${modalLeft}px`;
           confirmModal.style.top = `${modalTop}px`;
           return;
@@ -1018,12 +1196,18 @@
       log("Select target within weapon range.");
     };
 
+    document.getElementById("btn-skill").onclick = () => {
+      actionMode = 'SKILL';
+      hideMoveModal();
+      log(`${selectedUnit.name}: Select target for special skill.`);
+    };
+
     document.getElementById("btn-rest").onclick = () => {
       if (selectedUnit && !selectedUnit.acted) {
         selectedUnit.fatigue = Math.max(0, selectedUnit.fatigue - 3.0);
         selectedUnit.acted = true;
         hideMoveModal();
-        log(`${selectedUnit.name} caught breath (-3 Fatigue).`);
+        log(`${selectedUnit.name} catches breath (-3 Fatigue).`);
         updateIntelPanel();
       }
     };
@@ -1038,15 +1222,14 @@
       document.getElementById("btn-end-turn").disabled = true;
 
       playPhaseBanner("ENEMY PHASE", false, async () => {
-        // Run AI one by one
         await runTacticalAISequential();
 
-        // Bloom Toxicity pulse around Thrall's current position
+        // Spore Aura exposure pulse
         units.filter(u => u.hp > 0).forEach(u => {
-          if (isInsideBloomAura(u.x, u.y)) {
+          if (isInsideBloomAura(u.x, u.y) && !u.isGrafted) {
             u.fatigue = Math.min(u.maxFat, u.fatigue + 2.0);
             for (let k in u.armor) u.armor[k] = Math.max(0, u.armor[k] * 0.95);
-            log(`<span style="color:var(--bloom-green)">[BLOOM AURA] ${u.name} exposed to Thrall's spores!</span>`);
+            log(`<span style="color:var(--bloom-green)">[BLOOM AURA] ${u.name} decayed by Thrall's spores!</span>`);
           } else {
             u.fatigue = Math.max(0, u.fatigue - 1.0);
           }
@@ -1073,7 +1256,7 @@
     updateAuras();
     render();
     playPhaseBanner("PLAYER PHASE", true, () => {
-      log("Battle of Thornwood River initiated. Pegasus & Harpy airborne!");
+      log("Grand Crossing deployed. 9 vs 9 engagement initiated!");
     });
   </script>
 </body>
