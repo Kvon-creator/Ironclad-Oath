@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Ironclad Oath - Expanded Battlefield</title>
+  <title>Ironclad Oath - Tactical Field System</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -12,12 +12,14 @@
       --accent-gold: #e3b341;
       --player-blue: #58a6ff;
       --enemy-red: #f85149;
+      --threat-orange: rgba(248, 81, 73, 0.35);
+      --move-blue: rgba(88, 166, 255, 0.4);
       --bloom-green: #56d364;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 12px;
+      padding: 10px;
       background: var(--bg);
       color: var(--text-main);
       font-family: 'Courier New', Courier, monospace;
@@ -27,15 +29,15 @@
       user-select: none;
     }
     h1 {
-      margin: 0 0 8px 0;
-      font-size: 1.2rem;
+      margin: 0 0 6px 0;
+      font-size: 1.15rem;
       letter-spacing: 2px;
       color: var(--accent-gold);
       text-transform: uppercase;
     }
     #game-layout {
       display: flex;
-      gap: 16px;
+      gap: 14px;
       align-items: flex-start;
     }
     #canvas-container {
@@ -51,7 +53,7 @@
       cursor: crosshair;
     }
     #sidebar {
-      width: 340px;
+      width: 330px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -89,7 +91,7 @@
     .bar-fill { height: 100%; transition: width 0.2s ease-out; }
     .btn-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
       gap: 5px;
       margin-top: 6px;
     }
@@ -97,7 +99,7 @@
       background: #21262d;
       color: var(--text-main);
       border: 1px solid var(--panel-border);
-      padding: 6px;
+      padding: 6px 4px;
       font-family: inherit;
       font-size: 0.72rem;
       font-weight: bold;
@@ -115,12 +117,12 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 3px;
-      max-width: 120px;
+      max-width: 110px;
       margin: 6px auto 0 auto;
     }
     .direction-pad button { padding: 4px; }
     #log-stream {
-      height: 120px;
+      height: 115px;
       overflow-y: auto;
       font-size: 0.7rem;
       line-height: 1.3;
@@ -160,6 +162,16 @@
     }
     #move-confirm-modal button { padding: 3px 8px; font-size: 0.68rem; }
     
+    #skill-dialog {
+      display: none;
+      background: #1b212c;
+      border: 1px solid var(--accent-gold);
+      border-radius: 3px;
+      padding: 6px;
+      font-size: 0.7rem;
+      margin-top: 6px;
+    }
+
     #phase-banner {
       display: none;
       position: absolute;
@@ -200,7 +212,7 @@
 </head>
 <body>
 
-  <h1>Ironclad Oath: The Grand Crossing</h1>
+  <h1>Ironclad Oath: Tactical Battlefield</h1>
 
   <div id="game-layout">
     <div id="canvas-container">
@@ -219,17 +231,25 @@
     <div id="sidebar">
       <div class="panel">
         <div class="panel-header">Tactical Intel</div>
-        <div id="unit-intel">Click a mercenary or enemy unit...</div>
+        <div id="unit-intel">Click any unit on the field...</div>
       </div>
 
       <div class="panel">
         <div class="panel-header">Action Deck</div>
         <div class="btn-grid">
           <button id="btn-strike" disabled>Strike</button>
-          <button id="btn-skill" disabled>Skill</button>
+          <button id="btn-skill" disabled>Skills</button>
           <button id="btn-rest" disabled>Rest (+3)</button>
-          <button id="btn-face" disabled>Set Facing</button>
+          <button id="btn-face" disabled>Facing</button>
         </div>
+
+        <div id="skill-dialog">
+          <div id="skill-title" style="font-weight:bold; color:var(--accent-gold);"></div>
+          <div id="skill-desc" style="margin:3px 0;"></div>
+          <div id="skill-status" style="font-size:0.65rem;"></div>
+          <button id="btn-use-skill" style="margin-top:4px; width:100%; display:none;">Activate Skill</button>
+        </div>
+
         <div id="facing-widget" style="display: none;">
           <div style="font-size: 0.7rem; text-align: center; margin-top: 4px;">Set Direction:</div>
           <div class="direction-pad">
@@ -263,17 +283,15 @@
       WEST:  { dx: -1, dy: 0, glyph: "<", name: "WEST" }
     };
 
-    // Environmental Setups for 16x16
-    const bridgeTiles = new Set(["4,7", "5,7", "11,7", "12,7"]); // Two wide bridge crossings
+    const bridgeTiles = new Set(["4,7", "5,7", "11,7", "12,7"]);
     const ruinTiles = new Set(["2,3", "3,3", "12,3", "13,3", "2,12", "3,12", "12,12", "13,12"]);
     const roadTiles = new Set([
       "4,0","5,0","4,1","5,1","4,2","5,2","4,3","5,3","4,4","5,4","4,5","5,5","4,6","5,6",
       "4,7","5,7","4,8","5,8","4,9","5,9","4,10","5,10","4,11","5,11","4,12","5,12","4,13","5,13","4,14","5,14","4,15","5,15",
       "11,0","12,0","11,1","12,1","11,2","12,2","11,3","12,3","11,4","12,4","11,5","12,5","11,6","12,6",
       "11,7","12,7","11,8","12,8","11,9","12,9","11,10","12,10","11,11","12,11","11,12","12,12","11,13","12,13","11,14","12,14","11,15","12,15",
-      "6,7","7,7","8,7","9,7","10,7" // Connecting horizontal road along riverbanks
+      "6,7","7,7","8,7","9,7","10,7"
     ]);
-
     const forestTiles = new Set([
       "0,0","1,0","2,0","0,1","1,1","14,0","15,0","14,1","15,1",
       "7,2","8,2","7,3","8,3",
@@ -291,7 +309,18 @@
     let isEnemyPhaseActive = false;
     let floatingTexts = [];
 
-    // Complete Roster - 9 Units per army
+    const SKILL_DATA = {
+      "Vanguard": { name: "Iron Bastion", desc: "Locks into Shield Wall and braces, raising Front Armor by +15 for 1 turn.", cost: "3 Fatigue" },
+      "Halberdier": { name: "Spear Hedge", desc: "Braces weapon forward to execute reaction strikes on approaching hostiles.", cost: "Passive Formation" },
+      "Archer": { name: "Dead-Eye Volley", desc: "Strikes enemy at range 3-4 ignoring target forest evasion bonuses.", cost: "4 Fatigue" },
+      "Flyer": { name: "Dive Bomb", desc: "Swoops past target tile inflicting +50% Poise impact.", cost: "5 Fatigue" },
+      "Pyromancer": { name: "Ignite Ground", desc: "Blasts tile into flames, clearing Bloom spores and damaging all in blast.", cost: "6 Fatigue" },
+      "Warden": { name: "Momentum Sweep", desc: "Strikes all 3 tiles directly in front with cleaving blade damage.", cost: "5 Fatigue" },
+      "Apothecary": { name: "Field Triage", desc: "Restores +18 HP, purges 10 Fatigue, and cures Stagger on adjacent ally.", cost: "4 Fatigue" },
+      "Duelist": { name: "Hook & Drag", desc: "Pulls enemy from 2 tiles away, spinning their exposed rear quadrant toward you.", cost: "5 Fatigue" },
+      "Grafted": { name: "Spore Siphon", desc: "Channels internal corruption to leech HP from enemies inside Bloom aura.", cost: "Passive Inside Bloom" }
+    };
+
     let units = [
       // PLAYER ARMY (South)
       { id: "P1", name: "Vanguard Knight", role: "Vanguard", faction: "PLAYER", x: 4, y: 13, facing: DIRS.NORTH,
@@ -461,18 +490,22 @@
       return Math.abs(thrall.x - x) <= 1 && Math.abs(thrall.y - y) <= 1;
     }
 
-    function canUnitTarget(attacker, target) {
-      let dx = target.x - attacker.x;
-      let dy = target.y - attacker.y;
+    function canUnitTargetFrom(u, fromX, fromY, targetX, targetY) {
+      let dx = targetX - fromX;
+      let dy = targetY - fromY;
       let absX = Math.abs(dx);
       let absY = Math.abs(dy);
       let manhattan = absX + absY;
 
-      if (attacker.isArcher) {
+      if (u.isArcher) {
         if (absX === 1 && absY === 1) return true;
-        return manhattan >= 2 && manhattan <= attacker.range;
+        return manhattan >= 2 && manhattan <= u.range;
       }
-      return manhattan <= attacker.range;
+      return manhattan <= u.range;
+    }
+
+    function canUnitTarget(attacker, target) {
+      return canUnitTargetFrom(attacker, attacker.x, attacker.y, target.x, target.y);
     }
 
     function spawnFloatingText(text, color, gx, gy) {
@@ -486,8 +519,9 @@
       });
     }
 
-    function getValidMoveTiles(unit) {
-      if (!unit || unit.faction !== "PLAYER" || unit.moved || unit.done || unit.staggered) return [];
+    // Get move reachable tiles for ANY unit
+    function getReachableTilesForUnit(unit) {
+      if (!unit || unit.hp <= 0 || unit.staggered) return [];
 
       let reachable = new Map();
       reachable.set(`${unit.x},${unit.y}`, 0);
@@ -525,11 +559,37 @@
       let valid = [];
       for (let [key] of reachable.entries()) {
         let [tx, ty] = key.split(",").map(Number);
-        if (!getUnitAt(tx, ty) && !(tx === unit.x && ty === unit.y)) {
-          valid.push({ x: tx, y: ty });
-        }
+        valid.push({ x: tx, y: ty });
       }
       return valid;
+    }
+
+    // Combined Move + Threat Range calculation
+    function getCombinedReach(unit) {
+      let moveTiles = getReachableTilesForUnit(unit);
+      let attackMap = new Set();
+
+      moveTiles.forEach(mt => {
+        // Find potential targets within range from this movement node
+        for (let x = Math.max(0, mt.x - unit.range); x <= Math.min(COLS - 1, mt.x + unit.range); x++) {
+          for (let y = Math.max(0, mt.y - unit.range); y <= Math.min(ROWS - 1, mt.y + unit.range); y++) {
+            if (canUnitTargetFrom(unit, mt.x, mt.y, x, y)) {
+              attackMap.add(`${x},${y}`);
+            }
+          }
+        }
+      });
+
+      // Filter moveTiles to unblocked locations for actual stepping
+      let unblockedMoves = moveTiles.filter(t => !getUnitAt(t.x, t.y) || (t.x === unit.x && t.y === unit.y));
+
+      return {
+        moveTiles: unblockedMoves,
+        threatTiles: Array.from(attackMap).map(k => {
+          let [x, y] = k.split(',').map(Number);
+          return { x, y };
+        })
+      };
     }
 
     function updateAuras() {
@@ -605,7 +665,6 @@
       let isCrit = Math.random() < attacker.critChance;
       let critMult = isCrit ? 2.0 : 1.0;
 
-      // Greatsword Exertion Surge bonus
       let exertionBonus = 0;
       if (attacker.role === "Warden") {
         exertionBonus = (attacker.fatigue / attacker.maxFat) * 10;
@@ -634,7 +693,6 @@
       defender.armor[res.slot] = Math.max(0, defender.armor[res.slot] - attacker.shred);
       defender.hp = Math.max(0, defender.hp - unmitigated);
 
-      // Grafted Remnant Lifesteal inside Bloom
       if (attacker.isGrafted && isInsideBloomAura(attacker.x, attacker.y)) {
         let leech = unmitigated * 0.35;
         attacker.hp = Math.min(attacker.maxHp, attacker.hp + leech);
@@ -651,7 +709,7 @@
 
       let tag = isOpportunity ? "[REACTION] " : "";
       let critTag = isCrit ? "<span style='color:var(--accent-gold); font-weight:bold;'> [CRIT!]</span>" : "";
-      log(`${tag}<b>${attacker.name}</b> hits <b>${defender.name}</b> (${res.angle})${critTag} for ${unmitigated.toFixed(1)} DMG!`);
+      log(`${tag}<b>${attacker.name}</b> strikes <b>${defender.name}</b> (${res.angle})${critTag} for ${unmitigated.toFixed(1)} DMG!`);
 
       if (defender.hp <= 0) log(`💀 <b>${defender.name}</b> was slain!`);
 
@@ -681,10 +739,8 @@
       return true;
     }
 
-    // Role-Specific Class Skills
     function executeClassSkill(actor, target) {
       if (actor.role === "Apothecary") {
-        // Triage: Heal, remove 10 fatigue, cure stagger
         target.hp = Math.min(target.maxHp, target.hp + 18);
         target.fatigue = Math.max(0, target.fatigue - 10);
         target.staggered = false;
@@ -693,7 +749,6 @@
         spawnFloatingText("TREATED!", "var(--player-blue)", target.x, target.y);
         log(`<b>${actor.name}</b> triaged <b>${target.name}</b> (+18 HP, -10 Fatigue).`);
       } else if (actor.role === "Duelist") {
-        // Hook & Drag: Pull target 1 tile closer, flip their facing away (expose rear)
         let dx = Math.sign(actor.x - target.x);
         let dy = Math.sign(actor.y - target.y);
         let pullX = target.x + dx;
@@ -703,12 +758,11 @@
           target.x = pullX;
           target.y = pullY;
         }
-        // Rotate target to face away from actor
         target.facing = actor.facing;
         actor.fatigue = Math.min(actor.maxFat, actor.fatigue + 5);
         actor.acted = true;
         spawnFloatingText("HOOKED!", "var(--accent-gold)", target.x, target.y);
-        log(`<b>${actor.name}</b> hooked and dragged <b>${target.name}</b>, exposing their rear!`);
+        log(`<b>${actor.name}</b> hooked and dragged <b>${target.name}</b>, exposing rear!`);
       }
       updateAuras();
       updateIntelPanel();
@@ -758,11 +812,10 @@
           continue;
         }
 
-        // Apothecary AI heals damaged allies first
         if (enemy.role === "Apothecary") {
-          let woundedAllies = units.filter(u => u.faction === "ENEMY" && u.hp > 0 && u.hp < u.maxHp && Math.abs(u.x - enemy.x) + Math.abs(u.y - enemy.y) <= 1);
-          if (woundedAllies.length > 0) {
-            executeClassSkill(enemy, woundedAllies[0]);
+          let wounded = units.filter(u => u.faction === "ENEMY" && u.hp > 0 && u.hp < u.maxHp && Math.abs(u.x - enemy.x) + Math.abs(u.y - enemy.y) <= 1);
+          if (wounded.length > 0) {
+            executeClassSkill(enemy, wounded[0]);
             await delay(450);
             continue;
           }
@@ -776,7 +829,6 @@
         let sx = target.x > enemy.x ? 1 : (target.x < enemy.x ? -1 : 0);
         let sy = target.y > enemy.y ? 1 : (target.y < enemy.y ? -1 : 0);
 
-        // Ground navigation through the two bridges
         if (!enemy.isFlying && ((enemy.y < 7 && target.y > 7) || (enemy.y > 7 && target.y < 7))) {
           let bridgeX = enemy.x <= 8 ? 5 : 11;
           sx = bridgeX > enemy.x ? 1 : (bridgeX < enemy.x ? -1 : 0);
@@ -817,12 +869,14 @@
       }
     }
 
+    // High-Fidelity 16-Bit Procedural Class Sprites
     function drawPixelUnit(u, px, py) {
       ctx.save();
       let bob = u.isFlying ? Math.sin(animationPulse * 2) * 3 : 0;
       ctx.translate(px + TILE_SIZE/2 + u.offsetX, py + TILE_SIZE/2 + u.offsetY + bob);
 
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      // Base shadow
+      ctx.fillStyle = "rgba(0,0,0,0.38)";
       ctx.beginPath();
       ctx.ellipse(0, TILE_SIZE/2 - 5 - bob, 11, 5, 0, 0, Math.PI * 2);
       ctx.fill();
@@ -830,67 +884,112 @@
       let isFlashing = u.flashRedTimer > 0;
       if (isFlashing) u.flashRedTimer--;
 
-      let armorColor = isFlashing ? "#ff2222" : (u.faction === "PLAYER" ? "#2b4b8a" : (u.afflicted ? "#2d5a27" : "#8b263e"));
-      let metalColor = isFlashing ? "#ffffff" : (u.faction === "PLAYER" ? "#6d8bc6" : (u.afflicted ? "#598a42" : "#c44d56"));
+      let mainCol = isFlashing ? "#ff2222" : (u.faction === "PLAYER" ? "#31548e" : (u.afflicted ? "#2a4d22" : "#8c283c"));
+      let trimCol = isFlashing ? "#ffffff" : (u.faction === "PLAYER" ? "#8ea7db" : (u.afflicted ? "#598a42" : "#cb5e6c"));
+      let skin = "#e5b887";
 
-      if (u.isFlying) {
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.ellipse(-12, -4, 7, 3.5, -0.3, 0, Math.PI * 2);
-        ctx.ellipse(12, -4, 7, 3.5, 0.3, 0, Math.PI * 2);
-        ctx.fill();
+      // Class-specific body sprites
+      switch(u.role) {
+        case "Vanguard":
+          // Heavy Plate Armor & Golden Crest
+          ctx.fillStyle = mainCol; ctx.fillRect(-7, -8, 14, 16);
+          ctx.fillStyle = trimCol; ctx.fillRect(-5, -6, 10, 12);
+          ctx.fillStyle = "#e3b341"; ctx.fillRect(-4, -13, 8, 3); // Crest
+          ctx.fillStyle = trimCol; ctx.fillRect(-5, -10, 10, 5); // Helm
+          // Kite Shield & Broadsword
+          ctx.fillStyle = "#e3b341"; ctx.fillRect(-11, -5, 4, 11);
+          ctx.fillStyle = "#ffffff"; ctx.fillRect(8, -12, 2, 16);
+          break;
+
+        case "Halberdier":
+          // Sallet Helmet & Spiked Polearm
+          ctx.fillStyle = mainCol; ctx.fillRect(-6, -7, 12, 14);
+          ctx.fillStyle = trimCol; ctx.fillRect(-4, -5, 8, 10);
+          ctx.fillStyle = trimCol; ctx.fillRect(-5, -11, 10, 5); // Sallet
+          ctx.fillStyle = "#8b5a2b"; ctx.fillRect(7, -18, 2, 28); // Shaft
+          ctx.fillStyle = "#e5e9f0"; ctx.fillRect(6, -21, 4, 6);  // Blade head
+          break;
+
+        case "Archer":
+          // Ranger Hood, Quiver, and Recurve Bow
+          ctx.fillStyle = "#2d4a22"; ctx.fillRect(-6, -11, 12, 6); // Hood
+          ctx.fillStyle = skin; ctx.fillRect(-3, -6, 6, 3);
+          ctx.fillStyle = mainCol; ctx.fillRect(-5, -3, 10, 11);
+          // Recurve Bow
+          ctx.strokeStyle = "#8b5a2b"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(8, 0, 7, -Math.PI/2, Math.PI/2); ctx.stroke();
+          ctx.fillStyle = "#d08770"; ctx.fillRect(-9, -7, 3, 10); // Quiver
+          break;
+
+        case "Flyer":
+          // Pegasus Wings & Soaring Lance
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.ellipse(-12, -4, 8, 4, -0.3, 0, Math.PI * 2);
+          ctx.ellipse(12, -4, 8, 4, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = mainCol; ctx.fillRect(-5, -7, 10, 13);
+          ctx.fillStyle = trimCol; ctx.fillRect(-4, -11, 8, 5);
+          ctx.fillStyle = "#e5e9f0"; ctx.fillRect(6, -18, 2, 24); // Lance
+          break;
+
+        case "Pyromancer":
+          // Robes & Floating Flame Core
+          ctx.fillStyle = "#4c1d24"; ctx.fillRect(-6, -6, 12, 14);
+          ctx.fillStyle = "#8c283c"; ctx.fillRect(-4, -11, 8, 6); // Cowl
+          ctx.fillStyle = "#ebcb8b";
+          let flamePulse = Math.sin(animationPulse * 4) * 2;
+          ctx.beginPath(); ctx.arc(8, -4 + flamePulse, 4, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#bf616a"; ctx.fillRect(7, -3 + flamePulse, 2, 2);
+          break;
+
+        case "Warden":
+          // Broad shoulders & Massive Two-Handed Claymore
+          ctx.fillStyle = mainCol; ctx.fillRect(-8, -6, 16, 14);
+          ctx.fillStyle = trimCol; ctx.fillRect(-5, -11, 10, 6);
+          // Giant Greatsword
+          ctx.fillStyle = "#d8dee9"; ctx.fillRect(8, -20, 3, 26);
+          ctx.fillStyle = "#e3b341"; ctx.fillRect(6, -8, 7, 2); // Crossguard
+          break;
+
+        case "Apothecary":
+          // Satchel, Field Cap, and Remedy Potion
+          ctx.fillStyle = "#2e3440"; ctx.fillRect(-5, -10, 10, 5); // Cap
+          ctx.fillStyle = skin; ctx.fillRect(-3, -6, 6, 3);
+          ctx.fillStyle = "#d8dee9"; ctx.fillRect(-5, -3, 10, 11); // Tunic
+          ctx.fillStyle = "#8b5a2b"; ctx.fillRect(-8, -2, 3, 7);  // Satchel
+          ctx.fillStyle = "#56d364"; ctx.fillRect(7, 0, 4, 6);   // Potion vial
+          break;
+
+        case "Duelist":
+          // Feathered Turban, Light Tunic, and Sickle Chain
+          ctx.fillStyle = "#b48ead"; ctx.fillRect(-5, -11, 10, 5);
+          ctx.fillStyle = skin; ctx.fillRect(-3, -6, 6, 3);
+          ctx.fillStyle = mainCol; ctx.fillRect(-5, -3, 10, 11);
+          // Sickle
+          ctx.strokeStyle = "#e5e9f0"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(7, -2, 4, 0, Math.PI); ctx.stroke();
+          ctx.fillStyle = "#4c566a"; ctx.fillRect(6, 2, 2, 6); // Chain line
+          break;
+
+        case "Grafted":
+          // Briar Carapace & Briar Root Tendrils
+          ctx.fillStyle = "#243a1f"; ctx.fillRect(-7, -7, 14, 15);
+          ctx.fillStyle = "#4e7d32"; ctx.fillRect(-5, -5, 10, 10);
+          ctx.fillStyle = "#a3be8c";
+          ctx.fillRect(-9, -4 + Math.sin(animationPulse*3)*2, 3, 8); // Tendril left
+          ctx.fillRect(7, -4 - Math.sin(animationPulse*3)*2, 3, 8);  // Tendril right
+          break;
       }
 
-      ctx.fillStyle = armorColor;
-      ctx.fillRect(-7, -7, 14, 14);
-      ctx.fillStyle = metalColor;
-      ctx.fillRect(-5, -5, 10, 10);
-      ctx.fillStyle = isFlashing ? "#ffffff" : "#e0ac69";
-      ctx.fillRect(-3, -9, 6, 4);
-
-      // Distinct Class Weapon Indicators
-      if (u.shield) {
-        ctx.fillStyle = "#e3b341";
-        ctx.fillRect(-11, -5, 3.5, 10);
-      }
-      if (u.spear) {
-        ctx.fillStyle = "#c0c0c0";
-        ctx.fillRect(7, -16, 2.5, 24);
-      }
-      if (u.isArcher) {
-        ctx.strokeStyle = "#8b5a2b";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(7, 0, 7, -Math.PI / 2, Math.PI / 2);
-        ctx.stroke();
-      }
-      if (u.role === "Pyromancer") {
-        ctx.fillStyle = "#f85149";
-        ctx.beginPath();
-        ctx.arc(8, -4, 4, 0, Math.PI*2);
-        ctx.fill();
-      }
-      if (u.role === "Warden") {
-        ctx.fillStyle = "#e5e9f0";
-        ctx.fillRect(7, -18, 4, 26);
-      }
-      if (u.role === "Apothecary") {
-        ctx.fillStyle = "#56d364";
-        ctx.fillRect(6, -4, 6, 6);
-      }
-      if (u.role === "Duelist") {
-        ctx.strokeStyle = "#d8dee9";
-        ctx.beginPath();
-        ctx.arc(7, 0, 5, 0, Math.PI);
-        ctx.stroke();
-      }
-
+      // Status indicator
       if (u.staggered) {
         ctx.fillStyle = "#f85149";
         ctx.font = "bold 9px monospace";
         ctx.fillText("STUN", -11, -14);
       }
 
+      // Directional Chevron
       ctx.fillStyle = u.faction === "PLAYER" ? "#58a6ff" : "#f85149";
       let off = 14;
       ctx.beginPath();
@@ -901,6 +1000,7 @@
       ctx.fill();
       ctx.restore();
 
+      // Overhead Mini HP Bar
       let barW = TILE_SIZE - 10;
       ctx.fillStyle = "#21262d";
       ctx.fillRect(px + 5 + u.offsetX, py + TILE_SIZE - 6 + u.offsetY, barW, 2.5);
@@ -914,6 +1014,7 @@
 
       let thrall = units.find(u => u.id === "ET" && u.hp > 0);
 
+      // Render Terrain
       for (let x = 0; x < COLS; x++) {
         for (let y = 0; y < ROWS; y++) {
           let px = x * TILE_SIZE;
@@ -965,19 +1066,29 @@
         }
       }
 
+      // COMBINED MOVEMENT & THREAT RANGE OVERLAY (FOR ANY CLICKED UNIT)
       if (selectedUnit && selectedUnit.hp > 0 && !actionMode && !isEnemyPhaseActive) {
-        let validMoves = getValidMoveTiles(selectedUnit);
-        let movePulse = 0.25 + 0.1 * Math.sin(animationPulse * 2);
+        let reach = getCombinedReach(selectedUnit);
+
+        // 1. Threat / Attack Boundary (Red/Orange)
+        ctx.fillStyle = "rgba(248, 81, 73, 0.22)";
+        reach.threatTiles.forEach(t => {
+          ctx.fillRect(t.x * TILE_SIZE + 1, t.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+        });
+
+        // 2. Legal Movement Tiles (Cyan/Blue)
+        let movePulse = 0.32 + 0.1 * Math.sin(animationPulse * 2);
         ctx.fillStyle = `rgba(88, 166, 255, ${movePulse})`;
-        validMoves.forEach(t => {
+        reach.moveTiles.forEach(t => {
           ctx.fillRect(t.x * TILE_SIZE + 1, t.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
           ctx.strokeStyle = "rgba(88, 166, 255, 0.7)";
           ctx.strokeRect(t.x * TILE_SIZE + 1, t.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
         });
       }
 
+      // Targeted Attack Highlight
       if (selectedUnit && actionMode === 'ATTACK' && !isEnemyPhaseActive) {
-        ctx.fillStyle = "rgba(248, 81, 73, 0.25)";
+        ctx.fillStyle = "rgba(248, 81, 73, 0.3)";
         units.filter(e => e.faction !== selectedUnit.faction && e.hp > 0).forEach(e => {
           if (canUnitTarget(selectedUnit, e)) {
             ctx.fillRect(e.x * TILE_SIZE + 1, e.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2);
@@ -985,8 +1096,9 @@
         });
       }
 
+      // Targeted Skill Highlight
       if (selectedUnit && actionMode === 'SKILL' && !isEnemyPhaseActive) {
-        ctx.fillStyle = "rgba(227, 179, 65, 0.25)";
+        ctx.fillStyle = "rgba(227, 179, 65, 0.3)";
         let group = (selectedUnit.role === "Apothecary")
           ? units.filter(u => u.faction === selectedUnit.faction && u.hp > 0)
           : units.filter(u => u.faction !== selectedUnit.faction && u.hp > 0);
@@ -998,8 +1110,10 @@
         });
       }
 
+      // Render Units
       units.filter(u => u.hp > 0).forEach(u => drawPixelUnit(u, u.x * TILE_SIZE, u.y * TILE_SIZE));
 
+      // Floating Combat Texts
       for (let i = floatingTexts.length - 1; i >= 0; i--) {
         let ft = floatingTexts[i];
         ctx.save();
@@ -1023,8 +1137,11 @@
 
     function updateIntelPanel() {
       const box = document.getElementById("unit-intel");
+      const skillDialog = document.getElementById("skill-dialog");
+      skillDialog.style.display = "none";
+
       if (!selectedUnit || selectedUnit.hp <= 0) {
-        box.innerHTML = "Click a unit on the field to inspect.";
+        box.innerHTML = "Click any unit on the field to inspect reach...";
         document.getElementById("btn-strike").disabled = true;
         document.getElementById("btn-skill").disabled = true;
         document.getElementById("btn-rest").disabled = true;
@@ -1060,7 +1177,8 @@
 
       let canAct = (u.faction === "PLAYER" && !u.done && !u.staggered && !isBannerPlaying && !isEnemyPhaseActive);
       document.getElementById("btn-strike").disabled = (!canAct || u.acted);
-      document.getElementById("btn-skill").disabled = (!canAct || u.acted || (u.role !== "Apothecary" && u.role !== "Duelist"));
+      // Skill button is ALWAYS enabled for inspected player units to inspect/use
+      document.getElementById("btn-skill").disabled = (u.faction !== "PLAYER");
       document.getElementById("btn-rest").disabled = (!canAct || u.acted);
       document.getElementById("btn-face").disabled = (!canAct);
     }
@@ -1076,7 +1194,7 @@
         selectedUnit.done = true;
         document.getElementById("facing-widget").style.display = "none";
         hideMoveModal();
-        log(`${selectedUnit.name} locked stance facing ${dirName}.`);
+        log(`${selectedUnit.name} braced facing ${dirName}.`);
         updateAuras();
         updateIntelPanel();
       }
@@ -1161,9 +1279,10 @@
         return;
       }
 
+      // Check valid movement click for player unit
       if (selectedUnit && selectedUnit.faction === "PLAYER" && !selectedUnit.moved && !selectedUnit.done) {
-        let validMoves = getValidMoveTiles(selectedUnit);
-        let clickedMove = validMoves.find(t => t.x === gx && t.y === gy);
+        let reach = getCombinedReach(selectedUnit);
+        let clickedMove = reach.moveTiles.find(t => t.x === gx && t.y === gy && !(t.x === selectedUnit.x && t.y === selectedUnit.y));
         if (clickedMove) {
           pendingMoveTile = clickedMove;
           const confirmModal = document.getElementById("move-confirm-modal");
@@ -1178,6 +1297,7 @@
         }
       }
 
+      // Default: Inspect any unit (Player OR Enemy) to reveal combined reach
       let clicked = getUnitAt(gx, gy);
       if (clicked) {
         selectedUnit = clicked;
@@ -1197,9 +1317,40 @@
     };
 
     document.getElementById("btn-skill").onclick = () => {
-      actionMode = 'SKILL';
-      hideMoveModal();
-      log(`${selectedUnit.name}: Select target for special skill.`);
+      if (!selectedUnit || selectedUnit.faction !== "PLAYER") return;
+
+      const dlg = document.getElementById("skill-dialog");
+      const title = document.getElementById("skill-title");
+      const desc = document.getElementById("skill-desc");
+      const stat = document.getElementById("skill-status");
+      const actBtn = document.getElementById("btn-use-skill");
+
+      let s = SKILL_DATA[selectedUnit.role];
+      if (!s) return;
+
+      title.textContent = `${s.name} (${selectedUnit.role})`;
+      desc.textContent = s.desc;
+
+      let isActionable = (selectedUnit.role === "Apothecary" || selectedUnit.role === "Duelist");
+      let canUse = isActionable && !selectedUnit.acted && !selectedUnit.done && !selectedUnit.staggered;
+
+      if (!isActionable) {
+        stat.innerHTML = `<span style="color:var(--text-muted);">Cost: ${s.cost} (Automatic/Inherent)</span>`;
+        actBtn.style.display = "none";
+      } else if (canUse) {
+        stat.innerHTML = `<span style="color:var(--bloom-green);">READY &bull; Cost: ${s.cost}</span>`;
+        actBtn.style.display = "block";
+        actBtn.onclick = () => {
+          actionMode = 'SKILL';
+          log(`${selectedUnit.name}: Select target within skill range (2 tiles).`);
+          dlg.style.display = "none";
+        };
+      } else {
+        stat.innerHTML = `<span style="color:var(--enemy-red);">UNAVAILABLE (Already acted or fatigued this turn)</span>`;
+        actBtn.style.display = "none";
+      }
+
+      dlg.style.display = "block";
     };
 
     document.getElementById("btn-rest").onclick = () => {
@@ -1224,7 +1375,6 @@
       playPhaseBanner("ENEMY PHASE", false, async () => {
         await runTacticalAISequential();
 
-        // Spore Aura exposure pulse
         units.filter(u => u.hp > 0).forEach(u => {
           if (isInsideBloomAura(u.x, u.y) && !u.isGrafted) {
             u.fatigue = Math.min(u.maxFat, u.fatigue + 2.0);
@@ -1256,7 +1406,7 @@
     updateAuras();
     render();
     playPhaseBanner("PLAYER PHASE", true, () => {
-      log("Grand Crossing deployed. 9 vs 9 engagement initiated!");
+      log("Grand Crossing deployed. Click any unit to view combined movement and threat range!");
     });
   </script>
 </body>
