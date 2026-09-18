@@ -30,7 +30,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      width: 812px;
+      width: 968px;
       margin-bottom: 6px;
     }
     h1 {
@@ -268,7 +268,7 @@
       border: 2px solid var(--accent-gold);
       border-radius: 6px;
       padding: 16px;
-      max-width: 420px;
+      max-width: 440px;
       box-shadow: 0 8px 30px rgba(0,0,0,0.9);
       line-height: 1.35;
     }
@@ -318,14 +318,14 @@
 <body>
 
   <div id="header-bar">
-    <h1>Ironclad Oath: The Chokepoint</h1>
+    <h1>Ironclad Oath: The River Crossing</h1>
     <div id="timer-display">CATACLYSM: 60s</div>
   </div>
 
   <div id="game-layout">
     <div id="canvas-container">
       <button id="btn-speed-toggle">SPEED: 1x</button>
-      <canvas id="stage" width="468" height="416"></canvas>
+      <canvas id="stage" width="624" height="572"></canvas>
       <div id="forecast-modal"></div>
       <div id="move-confirm-modal">
         <div style="font-weight: bold; color: var(--accent-gold);">Move Here?</div>
@@ -336,15 +336,15 @@
       </div>
       <div id="phase-banner"></div>
 
-      <!-- Tutorial Instructions Screen -->
+      <!-- Tutorial Screen -->
       <div id="tutorial-modal" class="screen-overlay">
         <div id="tutorial-card">
           <h2>BATTLE BRIEFING</h2>
-          <div class="rule-item"><strong>1. Movement & Range:</strong> Click any unit to see its legal movement (Blue) and attack threat range (Red). Click a blue tile and press "Yes" to navigate.</div>
-          <div class="rule-item"><strong>2. Directional Armor:</strong> Flank attacks deal +25% damage. Rear strikes deal +75% damage, bypass evasion, and ignore 75% of armor plate!</div>
-          <div class="rule-item"><strong>3. Zone of Control:</strong> Disengaging from an enemy's front tile triggers an automatic free strike against you. Spear units intercept advancing charges!</div>
-          <div class="rule-item"><strong>4. Class Skills:</strong> Use the Pyromancer's AoE fire, the Duelist's hook-and-drag, or the Pegasus's flight over the river to break enemy ranks.</div>
-          <div class="rule-item"><strong>5. 60-Second Cataclysm:</strong> You have 60 seconds to eliminate the hostiles before the Bloom detonates into sudden death!</div>
+          <div class="rule-item"><strong>1. Movement & Range:</strong> Click any unit to see legal moves (Blue) and weapon range (Red). Click a blue tile and press "Yes" to advance.</div>
+          <div class="rule-item"><strong>2. Directional Armor:</strong> Flank strikes deal +25% damage. Rear strikes deal +75% damage, bypass evasion, and ignore 75% of armor!</div>
+          <div class="rule-item"><strong>3. Zone of Control:</strong> Leaving an enemy's front tile triggers an opportunity attack. Spear units intercept advancing charges!</div>
+          <div class="rule-item"><strong>4. Class Skills:</strong> Use Pyromancer AoE fire, Duelist hook-and-drag, or Pegasus flight across the river to disrupt formations.</div>
+          <div class="rule-item"><strong>5. 60-Second Cataclysm:</strong> You have 60 seconds to eliminate hostiles before the Bloom erupts into sudden death!</div>
           <button id="btn-start-game" style="width: 100%; margin-top: 10px; padding: 8px; border-color: var(--accent-gold); font-size: 0.85rem;">COMMENCE BATTLE</button>
         </div>
       </div>
@@ -400,8 +400,8 @@
 
   <script>
     const TILE_SIZE = 52;
-    const COLS = 9;
-    const ROWS = 8;
+    const COLS = 12; // 9 + 3
+    const ROWS = 11; // 8 + 3
     const canvas = document.getElementById("stage");
     const ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
@@ -413,16 +413,19 @@
       WEST:  { dx: -1, dy: 0, glyph: "<", name: "WEST" }
     };
 
-    // Compact 9x8 map: 3 crossing bridges at Row 3 (x=2, 4, 6)
-    const bridgeTiles = new Set(["2,3", "4,3", "6,3"]);
-    const ruinTiles = new Set(["0,3", "8,3"]);
+    // River positioned across Row 5 with four bridge crossings (x=3, 5, 7, 9)
+    const bridgeTiles = new Set(["3,5", "5,5", "7,5", "9,5"]);
+    const ruinTiles = new Set(["1,3", "10,3", "1,7", "10,7"]);
     const roadTiles = new Set([
-      "2,0","2,1","2,2","2,3","2,4","2,5","2,6","2,7",
-      "4,0","4,1","4,2","4,3","4,4","4,5","4,6","4,7",
-      "6,0","6,1","6,2","6,3","6,4","6,5","6,6","6,7"
+      "3,0","3,1","3,2","3,3","3,4","3,5","3,6","3,7","3,8","3,9","3,10",
+      "5,0","5,1","5,2","5,3","5,4","5,5","5,6","5,7","5,8","5,9","5,10",
+      "7,0","7,1","7,2","7,3","7,4","7,5","7,6","7,7","7,8","7,9","7,10",
+      "9,0","9,1","9,2","9,3","9,4","9,5","9,6","9,7","9,8","9,9","9,10"
     ]);
     const forestTiles = new Set([
-      "0,0","8,0","0,1","8,1","0,6","8,6","0,7","8,7"
+      "0,0","1,0","10,0","11,0",
+      "0,1","11,1","0,9","11,9",
+      "0,10","1,10","10,10","11,10"
     ]);
 
     let turnCount = 1;
@@ -439,7 +442,6 @@
     let floatingTexts = [];
     let fireHazards = [];
 
-    // 60-Second Sudden Death Timer State
     let matchTimeRemaining = 60;
     let timerInterval = null;
     let isDamageSurgeActive = false;
@@ -496,19 +498,19 @@
     const SKILL_DATA = {
       "Vanguard":   { name: "Iron Bastion", desc: "Bolsters frontal plate by +15, locks Shield Wall, and halves frontal damage.", cost: 3, type: "self" },
       "Halberdier": { name: "Spear Hedge", desc: "Braces weapon directly forward, executing reaction attacks to interrupt advancing foes.", cost: 2, type: "self" },
-      "Archer":     { name: "Dead-Eye Volley", desc: "Sniper arrow (Range 2-3) ignoring target obstacle cover and forest evasion buffs.", cost: 5, type: "target_enemy", minR: 2, maxR: 3 },
+      "Archer":     { name: "Dead-Eye Volley", desc: "Sniper arrow (Range 3-4) ignoring target obstacle cover and forest evasion buffs.", cost: 5, type: "target_enemy", minR: 3, maxR: 4 },
       "Flyer":      { name: "Dive Bomb", desc: "Aerial descent strike from 2 tiles away dealing 2x Poise shock.", cost: 5, type: "target_enemy", minR: 2, maxR: 2 },
-      "Pyromancer": { name: "Ignite Ground", desc: "Scorches a cross pattern (center + 4 cardinal tiles) leaving lingering flames for 3 turns.", cost: 6, type: "target_tile", minR: 1, maxR: 2 },
+      "Pyromancer": { name: "Ignite Ground", desc: "Scorches a cross pattern (center + 4 cardinal tiles) leaving lingering flames for 3 turns.", cost: 6, type: "target_tile", minR: 1, maxR: 3 },
       "Warden":     { name: "Momentum Cleave", desc: "Cleaves all three tiles directly in front with a sweeping claymore swing.", cost: 5, type: "self" },
       "Apothecary": { name: "Field Triage", desc: "Restores +18 HP, purges 10 Fatigue, and cures Stagger on an adjacent ally.", cost: 4, type: "target_ally", minR: 1, maxR: 1 },
       "Duelist":    { name: "Hook & Drag", desc: "Grapples an enemy 2 tiles away, yanking them adjacent and spinning their unarmored rear toward you.", cost: 5, type: "target_enemy", minR: 2, maxR: 2 },
       "Grafted":    { name: "Spore Siphon", desc: "Channels internal parasite to drain 12 HP from all adjacent enemies simultaneously.", cost: 4, type: "self" }
     };
 
-    // 9 Units Per Army — Deployed right at the riverfront
+    // 12x11 Army Deployments (Player Rows 7-9, Hostile Rows 1-3)
     let units = [
-      // PLAYER ARMY (South: Rows 5 & 6)
-      { id: "P1", name: "Vanguard Knight", role: "Vanguard", faction: "PLAYER", x: 2, y: 5, renderX: 2, renderY: 5, facing: DIRS.NORTH,
+      // PLAYER ARMY (South)
+      { id: "P1", name: "Vanguard Knight", role: "Vanguard", faction: "PLAYER", x: 3, y: 7, renderX: 3, renderY: 7, facing: DIRS.NORTH,
         moveRange: 3, hp: 48, maxHp: 48, fatigue: 0, maxFat: 32, poise: 42, maxPoise: 42,
         accuracy: 34, critChance: 0.08, atk: 22, range: 1, poiseAtk: 18, shred: 12,
         shield: true, spear: false, isArcher: false, isFlying: false,
@@ -516,7 +518,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P2", name: "Hedge Halberdier", role: "Halberdier", faction: "PLAYER", x: 5, y: 5, renderX: 5, renderY: 5, facing: DIRS.NORTH,
+      { id: "P2", name: "Hedge Halberdier", role: "Halberdier", faction: "PLAYER", x: 7, y: 7, renderX: 7, renderY: 7, facing: DIRS.NORTH,
         moveRange: 3, hp: 40, maxHp: 40, fatigue: 0, maxFat: 26, poise: 32, maxPoise: 32,
         accuracy: 42, critChance: 0.15, atk: 26, range: 2, poiseAtk: 16, shred: 15,
         shield: false, spear: true, isArcher: false, isFlying: false,
@@ -524,15 +526,15 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P3", name: "Outrider Scout", role: "Archer", faction: "PLAYER", x: 2, y: 6, renderX: 2, renderY: 6, facing: DIRS.NORTH,
-        moveRange: 3, hp: 30, maxHp: 30, fatigue: 0, maxFat: 22, poise: 18, maxPoise: 18,
+      { id: "P3", name: "Outrider Scout", role: "Archer", faction: "PLAYER", x: 3, y: 9, renderX: 3, renderY: 9, facing: DIRS.NORTH,
+        moveRange: 4, hp: 30, maxHp: 30, fatigue: 0, maxFat: 22, poise: 18, maxPoise: 18,
         accuracy: 58, critChance: 0.28, atk: 21, range: 3, poiseAtk: 10, shred: 8,
         shield: false, spear: false, isArcher: true, isFlying: false,
         armor: { FRONT: 16, FLANK: 12, REAR: 6 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P4", name: "Skyguard Pegasus", role: "Flyer", faction: "PLAYER", x: 7, y: 5, renderX: 7, renderY: 5, facing: DIRS.NORTH,
+      { id: "P4", name: "Skyguard Pegasus", role: "Flyer", faction: "PLAYER", x: 9, y: 7, renderX: 9, renderY: 7, facing: DIRS.NORTH,
         moveRange: 4, hp: 34, maxHp: 34, fatigue: 0, maxFat: 28, poise: 24, maxPoise: 24,
         accuracy: 50, critChance: 0.20, atk: 22, range: 1, poiseAtk: 14, shred: 10,
         shield: false, spear: true, isArcher: false, isFlying: true,
@@ -540,15 +542,15 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P5", name: "Pyromancer", role: "Pyromancer", faction: "PLAYER", x: 6, y: 6, renderX: 6, renderY: 6, facing: DIRS.NORTH,
+      { id: "P5", name: "Pyromancer", role: "Pyromancer", faction: "PLAYER", x: 8, y: 8, renderX: 8, renderY: 8, facing: DIRS.NORTH,
         moveRange: 3, hp: 32, maxHp: 32, fatigue: 0, maxFat: 24, poise: 20, maxPoise: 20,
-        accuracy: 45, critChance: 0.18, atk: 28, range: 2, poiseAtk: 22, shred: 14,
+        accuracy: 45, critChance: 0.18, atk: 28, range: 3, poiseAtk: 22, shred: 14,
         shield: false, spear: false, isArcher: false, isFlying: false,
         armor: { FRONT: 18, FLANK: 12, REAR: 8 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P6", name: "Greatsword Warden", role: "Warden", faction: "PLAYER", x: 6, y: 5, renderX: 6, renderY: 5, facing: DIRS.NORTH,
+      { id: "P6", name: "Greatsword Warden", role: "Warden", faction: "PLAYER", x: 5, y: 7, renderX: 5, renderY: 7, facing: DIRS.NORTH,
         moveRange: 3, hp: 44, maxHp: 44, fatigue: 0, maxFat: 35, poise: 38, maxPoise: 38,
         accuracy: 38, critChance: 0.22, atk: 30, range: 1, poiseAtk: 24, shred: 18,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -556,7 +558,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P7", name: "Apothecary", role: "Apothecary", faction: "PLAYER", x: 4, y: 6, renderX: 4, renderY: 6, facing: DIRS.NORTH,
+      { id: "P7", name: "Apothecary", role: "Apothecary", faction: "PLAYER", x: 5, y: 9, renderX: 5, renderY: 9, facing: DIRS.NORTH,
         moveRange: 3, hp: 32, maxHp: 32, fatigue: 0, maxFat: 25, poise: 20, maxPoise: 20,
         accuracy: 40, critChance: 0.10, atk: 15, range: 1, poiseAtk: 8, shred: 4,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -564,7 +566,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P8", name: "Hook-Chain Duelist", role: "Duelist", faction: "PLAYER", x: 1, y: 5, renderX: 1, renderY: 5, facing: DIRS.NORTH,
+      { id: "P8", name: "Hook-Chain Duelist", role: "Duelist", faction: "PLAYER", x: 2, y: 7, renderX: 2, renderY: 7, facing: DIRS.NORTH,
         moveRange: 3, hp: 35, maxHp: 35, fatigue: 0, maxFat: 28, poise: 22, maxPoise: 22,
         accuracy: 62, critChance: 0.32, atk: 24, range: 2, poiseAtk: 16, shred: 12,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -572,7 +574,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "P9", name: "Grafted Remnant", role: "Grafted", faction: "PLAYER", x: 4, y: 5, renderX: 4, renderY: 5, facing: DIRS.NORTH,
+      { id: "P9", name: "Grafted Remnant", role: "Grafted", faction: "PLAYER", x: 6, y: 8, renderX: 6, renderY: 8, facing: DIRS.NORTH,
         moveRange: 3, hp: 50, maxHp: 50, fatigue: 0, maxFat: 38, poise: 45, maxPoise: 45,
         accuracy: 32, critChance: 0.12, atk: 26, range: 1, poiseAtk: 20, shred: 16,
         shield: false, spear: false, isArcher: false, isFlying: false, isGrafted: true,
@@ -580,8 +582,8 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         moved: false, acted: false, done: false, staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      // HOSTILE FORCES (North: Rows 1 & 2)
-      { id: "E1", name: "Imperial Footman", role: "Vanguard", faction: "ENEMY", x: 2, y: 2, renderX: 2, renderY: 2, facing: DIRS.SOUTH,
+      // HOSTILE FORCES (North)
+      { id: "E1", name: "Imperial Footman", role: "Vanguard", faction: "ENEMY", x: 3, y: 3, renderX: 3, renderY: 3, facing: DIRS.SOUTH,
         moveRange: 3, hp: 36, maxHp: 36, fatigue: 0, maxFat: 25, poise: 26, maxPoise: 26,
         accuracy: 32, critChance: 0.10, atk: 20, range: 1, poiseAtk: 15, shred: 9,
         shield: true, spear: false, isArcher: false, isFlying: false,
@@ -589,7 +591,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E2", name: "Imperial Halberd", role: "Halberdier", faction: "ENEMY", x: 5, y: 2, renderX: 5, renderY: 2, facing: DIRS.SOUTH,
+      { id: "E2", name: "Imperial Halberd", role: "Halberdier", faction: "ENEMY", x: 7, y: 3, renderX: 7, renderY: 3, facing: DIRS.SOUTH,
         moveRange: 3, hp: 36, maxHp: 36, fatigue: 0, maxFat: 25, poise: 26, maxPoise: 26,
         accuracy: 35, critChance: 0.12, atk: 22, range: 2, poiseAtk: 14, shred: 12,
         shield: false, spear: true, isArcher: false, isFlying: false,
@@ -597,7 +599,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E3", name: "Harpy Scout", role: "Flyer", faction: "ENEMY", x: 7, y: 2, renderX: 7, renderY: 2, facing: DIRS.SOUTH,
+      { id: "E3", name: "Harpy Scout", role: "Flyer", faction: "ENEMY", x: 9, y: 3, renderX: 9, renderY: 3, facing: DIRS.SOUTH,
         moveRange: 4, hp: 28, maxHp: 28, fatigue: 0, maxFat: 24, poise: 18, maxPoise: 18,
         accuracy: 48, critChance: 0.18, atk: 20, range: 1, poiseAtk: 12, shred: 8,
         shield: false, spear: false, isArcher: false, isFlying: true,
@@ -605,7 +607,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E4", name: "Imperial Arbalest", role: "Archer", faction: "ENEMY", x: 2, y: 1, renderX: 2, renderY: 1, facing: DIRS.SOUTH,
+      { id: "E4", name: "Imperial Arbalest", role: "Archer", faction: "ENEMY", x: 3, y: 1, renderX: 3, renderY: 1, facing: DIRS.SOUTH,
         moveRange: 3, hp: 28, maxHp: 28, fatigue: 0, maxFat: 22, poise: 18, maxPoise: 18,
         accuracy: 50, critChance: 0.22, atk: 22, range: 3, poiseAtk: 12, shred: 10,
         shield: false, spear: false, isArcher: true, isFlying: false,
@@ -613,15 +615,15 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E5", name: "Heretic Pyro", role: "Pyromancer", faction: "ENEMY", x: 6, y: 1, renderX: 6, renderY: 1, facing: DIRS.SOUTH,
+      { id: "E5", name: "Heretic Pyro", role: "Pyromancer", faction: "ENEMY", x: 8, y: 2, renderX: 8, renderY: 2, facing: DIRS.SOUTH,
         moveRange: 3, hp: 30, maxHp: 30, fatigue: 0, maxFat: 24, poise: 18, maxPoise: 18,
-        accuracy: 42, critChance: 0.18, atk: 27, range: 2, poiseAtk: 20, shred: 14,
+        accuracy: 42, critChance: 0.18, atk: 27, range: 3, poiseAtk: 20, shred: 14,
         shield: false, spear: false, isArcher: false, isFlying: false,
         armor: { FRONT: 16, FLANK: 12, REAR: 8 },
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E6", name: "Mercenary Zweihänder", role: "Warden", faction: "ENEMY", x: 6, y: 2, renderX: 6, renderY: 2, facing: DIRS.SOUTH,
+      { id: "E6", name: "Mercenary Zweihänder", role: "Warden", faction: "ENEMY", x: 5, y: 3, renderX: 5, renderY: 3, facing: DIRS.SOUTH,
         moveRange: 3, hp: 42, maxHp: 42, fatigue: 0, maxFat: 32, poise: 34, maxPoise: 34,
         accuracy: 36, critChance: 0.20, atk: 28, range: 1, poiseAtk: 22, shred: 16,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -629,7 +631,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E7", name: "Plague Leech", role: "Apothecary", faction: "ENEMY", x: 4, y: 1, renderX: 4, renderY: 1, facing: DIRS.SOUTH,
+      { id: "E7", name: "Plague Leech", role: "Apothecary", faction: "ENEMY", x: 5, y: 1, renderX: 5, renderY: 1, facing: DIRS.SOUTH,
         moveRange: 3, hp: 30, maxHp: 30, fatigue: 0, maxFat: 24, poise: 18, maxPoise: 18,
         accuracy: 38, critChance: 0.10, atk: 14, range: 1, poiseAtk: 8, shred: 4,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -637,7 +639,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "E8", name: "Flail Marauder", role: "Duelist", faction: "ENEMY", x: 1, y: 2, renderX: 1, renderY: 2, facing: DIRS.SOUTH,
+      { id: "E8", name: "Flail Marauder", role: "Duelist", faction: "ENEMY", x: 2, y: 3, renderX: 2, renderY: 3, facing: DIRS.SOUTH,
         moveRange: 3, hp: 34, maxHp: 34, fatigue: 0, maxFat: 26, poise: 22, maxPoise: 22,
         accuracy: 58, critChance: 0.28, atk: 23, range: 2, poiseAtk: 16, shred: 12,
         shield: false, spear: false, isArcher: false, isFlying: false,
@@ -645,7 +647,7 @@
         offsetX: 0, offsetY: 0, flashRedTimer: 0,
         staggered: false, inShieldWall: false, inSpearHedge: false },
 
-      { id: "ET", name: "Bloom Thrall", role: "Grafted", faction: "ENEMY", x: 4, y: 2, renderX: 4, renderY: 2, facing: DIRS.SOUTH,
+      { id: "ET", name: "Bloom Thrall", role: "Grafted", faction: "ENEMY", x: 6, y: 2, renderX: 6, renderY: 2, facing: DIRS.SOUTH,
         moveRange: 3, hp: 60, maxHp: 60, fatigue: 0, maxFat: 42, poise: 65, maxPoise: 65,
         accuracy: 28, critChance: 0.18, atk: 28, range: 1, poiseAtk: 26, shred: 18,
         shield: false, spear: false, isArcher: false, isFlying: false, afflicted: true,
@@ -661,7 +663,7 @@
     }
 
     function isWaterTile(x, y) {
-      if (y !== 3) return false;
+      if (y !== 5) return false;
       return !bridgeTiles.has(`${x},${y}`);
     }
 
@@ -1256,7 +1258,7 @@
 
       let thrall = units.find(u => u.id === "ET" && u.hp > 0);
 
-      // Render 9x8 Grid
+      // Render 12x11 Grid
       for (let x = 0; x < COLS; x++) {
         for (let y = 0; y < ROWS; y++) {
           let px = x * TILE_SIZE;
@@ -1270,7 +1272,7 @@
           }
           ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
 
-          if (y === 3) {
+          if (y === 5) {
             if (bridgeTiles.has(key)) {
               ctx.fillStyle = "#8a5836";
               ctx.fillRect(px, py + 3, TILE_SIZE, TILE_SIZE - 6);
@@ -1284,7 +1286,7 @@
             }
           }
 
-          if (forestTiles.has(key) && y !== 3) {
+          if (forestTiles.has(key) && y !== 5) {
             ctx.fillStyle = "#223f19";
             ctx.beginPath();
             ctx.arc(px + TILE_SIZE/2, py + TILE_SIZE/2, 14, 0, Math.PI*2);
