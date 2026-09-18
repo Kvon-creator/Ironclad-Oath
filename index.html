@@ -26,12 +26,38 @@
       align-items: center;
       user-select: none;
     }
+    #header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 1016px;
+      margin-bottom: 6px;
+    }
     h1 {
-      margin: 0 0 6px 0;
+      margin: 0;
       font-size: 1.15rem;
       letter-spacing: 2px;
       color: var(--accent-gold);
       text-transform: uppercase;
+    }
+    #timer-display {
+      font-size: 1rem;
+      font-weight: bold;
+      color: var(--accent-gold);
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      padding: 4px 12px;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    #timer-display.danger {
+      color: var(--enemy-red);
+      border-color: var(--enemy-red);
+      animation: pulse-danger 1s infinite alternate;
+    }
+    @keyframes pulse-danger {
+      from { transform: scale(1); }
+      to { transform: scale(1.05); }
     }
     #game-layout {
       display: flex;
@@ -222,19 +248,48 @@
     .phase-blue { background: linear-gradient(90deg, transparent, rgba(31, 111, 235, 0.92) 20%, rgba(31, 111, 235, 0.92) 80%, transparent); color: #fff; }
     .phase-red  { background: linear-gradient(90deg, transparent, rgba(218, 54, 51, 0.92) 20%, rgba(218, 54, 51, 0.92) 80%, transparent); color: #fff; }
 
-    #endscreen-modal {
-      display: none;
+    /* Tutorial & Game Over Modals */
+    .screen-overlay {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(13, 17, 23, 0.88);
-      z-index: 50;
+      background: rgba(13, 17, 23, 0.92);
+      z-index: 60;
+      display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      backdrop-filter: blur(4px);
+      padding: 24px;
+      backdrop-filter: blur(5px);
+    }
+    #tutorial-card {
+      background: var(--panel-bg);
+      border: 2px solid var(--accent-gold);
+      border-radius: 6px;
+      padding: 20px;
+      max-width: 520px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.9);
+      line-height: 1.4;
+    }
+    #tutorial-card h2 {
+      margin: 0 0 10px 0;
+      color: var(--accent-gold);
+      font-size: 1.2rem;
+      text-align: center;
+      letter-spacing: 2px;
+    }
+    .rule-item {
+      margin-bottom: 8px;
+      font-size: 0.76rem;
+    }
+    .rule-item strong {
+      color: var(--player-blue);
+    }
+    #endscreen-modal {
+      display: none;
+      z-index: 50;
     }
     #endscreen-title {
       font-size: 2.2rem;
@@ -263,7 +318,10 @@
 </head>
 <body>
 
-  <h1>Ironclad Oath: Tactical Battlefield</h1>
+  <div id="header-bar">
+    <h1>Ironclad Oath: The Grand Crossing</h1>
+    <div id="timer-display">CATACLYSM: 60s</div>
+  </div>
 
   <div id="game-layout">
     <div id="canvas-container">
@@ -279,7 +337,21 @@
       </div>
       <div id="phase-banner"></div>
 
-      <div id="endscreen-modal">
+      <!-- Tutorial Instructions Screen -->
+      <div id="tutorial-modal" class="screen-overlay">
+        <div id="tutorial-card">
+          <h2>BATTLE BRIEFING</h2>
+          <div class="rule-item"><strong>1. Movement & Range:</strong> Click any unit to see its legal movement (Blue) and attack threat range (Red). Click a blue tile and press "Yes" to navigate.</div>
+          <div class="rule-item"><strong>2. Directional Armor:</strong> Flank attacks deal +25% damage. Rear strikes deal +75% damage, bypass evasion, and ignore 75% of armor plate!</div>
+          <div class="rule-item"><strong>3. Zone of Control:</strong> Disengaging from an enemy's front tile triggers an automatic free strike against you. Spear units intercept advancing charges!</div>
+          <div class="rule-item"><strong>4. Class Skills:</strong> Use the Pyromancer's AoE fire, the Duelist's hook-and-drag, or the Pegasus's flight over the river to break enemy ranks.</div>
+          <div class="rule-item"><strong>5. 60-Second Cataclysm:</strong> You have 60 seconds to defeat the enemy before the Bloom erupts into sudden death!</div>
+          <button id="btn-start-game" style="width: 100%; margin-top: 12px; padding: 8px; border-color: var(--accent-gold); font-size: 0.85rem;">COMMENCE BATTLE</button>
+        </div>
+      </div>
+
+      <!-- End Screen Modal -->
+      <div id="endscreen-modal" class="screen-overlay">
         <div id="endscreen-title"></div>
         <button id="btn-restart" style="padding: 10px 24px; font-size: 0.9rem; border-color: var(--accent-gold);">Restart Battle</button>
       </div>
@@ -325,7 +397,6 @@
     </div>
   </div>
 
-  <!-- Load External 12x18 Detailed Sprite Engine -->
   <script src="sprites.js"></script>
 
   <script>
@@ -370,8 +441,53 @@
     let isEnemyPhaseActive = false;
     let isMovingAnimationActive = false;
     let isGameOver = false;
+    let battleStarted = false;
     let floatingTexts = [];
     let fireHazards = [];
+
+    // 60-Second Sudden Death Timer State
+    let matchTimeRemaining = 60;
+    let timerInterval = null;
+    let isDamageSurgeActive = false;
+
+    function startMatchTimer() {
+      const timerElem = document.getElementById("timer-display");
+      timerInterval = setInterval(() => {
+        if (!battleStarted || isGameOver) return;
+        matchTimeRemaining = Math.max(0, matchTimeRemaining - 1);
+        timerElem.textContent = `CATACLYSM: ${matchTimeRemaining}s`;
+
+        // At 30s: Trigger Damage Surge & Spore Expansion
+        if (matchTimeRemaining === 30 && !isDamageSurgeActive) {
+          isDamageSurgeActive = true;
+          timerElem.classList.add("danger");
+          log("<span style='color:var(--enemy-red); font-weight:bold;'>[CATACLYSM ALERT] 30s REMAINING! Damage increased by +50%! Spores spread!</span>");
+          units.forEach(u => u.atk = Math.round(u.atk * 1.5));
+          ["6,6", "7,6", "8,6", "9,6", "6,8", "7,8", "8,8", "9,8"].forEach(k => roadTiles.add(k));
+        }
+
+        // At 0s: Sudden Death Resolution
+        if (matchTimeRemaining <= 0) {
+          clearInterval(timerInterval);
+          triggerSuddenDeath();
+        }
+      }, 1000);
+    }
+
+    function triggerSuddenDeath() {
+      if (isGameOver) return;
+      isGameOver = true;
+      log("<span style='color:var(--enemy-red); font-weight:bold;'>[CATACLYSM DETONATION] Time elapsed! Cataclysm burst across the battlefield!</span>");
+      
+      let playerTotalHP = units.filter(u => u.faction === "PLAYER" && u.hp > 0).reduce((acc, u) => acc + u.hp, 0);
+      let enemyTotalHP = units.filter(u => u.faction === "ENEMY" && u.hp > 0).reduce((acc, u) => acc + u.hp, 0);
+
+      if (playerTotalHP >= enemyTotalHP) {
+        showEndScreen(`VICTORY (${playerTotalHP.toFixed(0)} vs ${enemyTotalHP.toFixed(0)} HP)`, true);
+      } else {
+        showEndScreen(`DEFEAT (${playerTotalHP.toFixed(0)} vs ${enemyTotalHP.toFixed(0)} HP)`, false);
+      }
+    }
 
     const btnSpeedToggle = document.getElementById("btn-speed-toggle");
     btnSpeedToggle.onclick = () => {
@@ -603,9 +719,11 @@
 
       if (enemiesAlive === 0) {
         isGameOver = true;
+        clearInterval(timerInterval);
         showEndScreen("VICTORY", true);
       } else if (playersAlive === 0) {
         isGameOver = true;
+        clearInterval(timerInterval);
         showEndScreen("DEFEAT", false);
       }
     }
@@ -621,6 +739,15 @@
 
     document.getElementById("btn-restart").onclick = () => {
       window.location.reload();
+    };
+
+    document.getElementById("btn-start-game").onclick = () => {
+      document.getElementById("tutorial-modal").style.display = "none";
+      battleStarted = true;
+      startMatchTimer();
+      playPhaseBanner("PLAYER PHASE", true, () => {
+        log("Grand Crossing deployed. 60-second cataclysm countdown initiated!");
+      });
     };
 
     function findShortestPath(unit, targetX, targetY) {
@@ -1137,7 +1264,6 @@
 
       let thrall = units.find(u => u.id === "ET" && u.hp > 0);
 
-      // Render Terrain
       for (let x = 0; x < COLS; x++) {
         for (let y = 0; y < ROWS; y++) {
           let px = x * TILE_SIZE;
@@ -1197,7 +1323,6 @@
         }
       }
 
-      // Range Overlays
       if (selectedUnit && selectedUnit.hp > 0 && !actionMode && !isEnemyPhaseActive && !isMovingAnimationActive) {
         let reach = getCombinedReach(selectedUnit);
 
@@ -1237,14 +1362,12 @@
         }
       }
 
-      // Render Units via sprites.js
       units.filter(u => u.hp > 0).forEach(u => {
         let renderX = (u.renderX !== undefined) ? u.renderX : u.x;
         let renderY = (u.renderY !== undefined) ? u.renderY : u.y;
         drawDetailedUnitSprite(ctx, u, renderX * TILE_SIZE, renderY * TILE_SIZE, TILE_SIZE, animationPulse, DIRS);
       });
 
-      // Floating Texts
       for (let i = floatingTexts.length - 1; i >= 0; i--) {
         let ft = floatingTexts[i];
         ctx.save();
@@ -1349,7 +1472,7 @@
     document.getElementById("btn-cancel-move").onclick = hideMoveModal;
 
     canvas.addEventListener("mousemove", (e) => {
-      if (isEnemyPhaseActive || isMovingAnimationActive || isGameOver) return;
+      if (isEnemyPhaseActive || isMovingAnimationActive || isGameOver || !battleStarted) return;
       const rect = canvas.getBoundingClientRect();
       const gx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
       const gy = Math.floor((e.clientY - rect.top) / TILE_SIZE);
@@ -1379,7 +1502,7 @@
     });
 
     canvas.addEventListener("click", (e) => {
-      if (isBannerPlaying || isEnemyPhaseActive || isMovingAnimationActive || isGameOver) return;
+      if (isBannerPlaying || isEnemyPhaseActive || isMovingAnimationActive || isGameOver || !battleStarted) return;
       const rect = canvas.getBoundingClientRect();
       const gx = Math.floor((e.clientX - rect.left) / TILE_SIZE);
       const gy = Math.floor((e.clientY - rect.top) / TILE_SIZE);
@@ -1549,9 +1672,6 @@
 
     updateAuras();
     render();
-    playPhaseBanner("PLAYER PHASE", true, () => {
-      log("Grand Crossing tactical engine initialized. Toggle 2x speed in top-left anytime!");
-    });
   </script>
 </body>
 </html>
